@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0c0c0b;
+  --color-surface: #161513;
+  --color-raised: #1e1c19;
+  --color-fg: #f4f0ea;
+  --color-muted: #9c958c;
+  --color-primary: #ece7df;
+  --color-primary-fg: #141210;
+  --color-border: #2c2925;
+  --color-danger: #c4564a;
+  --color-ok: #4a9a6e;
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+}
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+
+  html,
+  body {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .dojo-photo {
+    background-image: url("/bg-portrait.jpg");
+  }
+
+  @media (min-aspect-ratio: 1/1) {
+    .dojo-photo {
+      background-image: url("/bg-landscape.jpg");
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

@@ -1,0 +1,98 @@
+import { create } from "zustand";
+import type { Difficulty, HudSnap, OpSel, RunConfig } from "./types.ts";
+import { scoreKey } from "./types.ts";
+import {
+  type SaveData,
+  bestFor,
+  isUnlocked,
+  loadSave,
+  persistSave,
+  recordRun,
+} from "./save.ts";
+
+export type Screen = "home" | "setup" | "how" | "scores" | "playing" | "paused" | "over";
+
+export interface LastRun {
+  score: number;
+  solved: number;
+  maxCombo: number;
+  best: number;
+  newBest: boolean;
+  unlockedNew: Difficulty | null;
+  config: RunConfig;
+}
+
+interface GameState {
+  screen: Screen;
+  config: RunConfig;
+  save: SaveData;
+  hud: HudSnap;
+  lastRun: LastRun | null;
+  setScreen: (s: Screen) => void;
+  patchConfig: (p: Partial<RunConfig>) => void;
+  setHud: (h: HudSnap) => void;
+  toggleMute: () => void;
+  toggleShake: () => void;
+  finishRun: (score: number, solved: number, maxCombo: number) => void;
+  isDiffOpen: (diff: Difficulty) => boolean;
+  best: () => number;
+}
+
+const idleHud: HudSnap = {
+  score: 0,
+  combo: 0,
+  lives: 3,
+  solved: 0,
+  problem: "",
+  reveal: null,
+  feedback: null,
+};
+
+export const useGame = create<GameState>((set, get) => ({
+  screen: "home",
+  config: { op: "mul", difficulty: "easy", table: "all" },
+  save: loadSave(),
+  hud: idleHud,
+  lastRun: null,
+  setScreen: (screen) => set({ screen }),
+  patchConfig: (p) => {
+    const config = { ...get().config, ...p };
+    if (p.op && p.op !== "mul" && p.op !== "div" && p.op !== "mix") {
+      config.table = "all";
+    }
+    set({ config });
+  },
+  setHud: (hud) => set({ hud }),
+  toggleMute: () => {
+    const save = { ...get().save, muted: !get().save.muted };
+    persistSave(save);
+    set({ save });
+  },
+  toggleShake: () => {
+    const save = { ...get().save, shake: !get().save.shake };
+    persistSave(save);
+    set({ save });
+  },
+  finishRun: (score, solved, maxCombo) => {
+    const { save, config } = get();
+    const result = recordRun(save, config, score, solved);
+    set({
+      save: result.save,
+      screen: "over",
+      lastRun: {
+        score,
+        solved,
+        maxCombo,
+        best: result.save.best[scoreKey(config)] ?? score,
+        newBest: result.newBest,
+        unlockedNew: result.unlockedNew,
+        config,
+      },
+    });
+  },
+  isDiffOpen: (diff) => isUnlocked(get().save, get().config.op, diff),
+  best: () => bestFor(get().save, get().config),
+}));
+
+export type { OpSel };
+
