@@ -11,7 +11,6 @@ import {
   VolumeX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FRUIT_KINDS } from "@/game/assets";
 import { difficultyBlurb, neededToUnlock } from "@/game/problems";
 import { ALL_OPS, diffIndex } from "@/game/save";
 import { useGame } from "@/game/store";
@@ -30,17 +29,6 @@ export function HomeScreen({ onPlay }: { onPlay: () => void }) {
         <p className="mt-3 max-w-xs text-base leading-snug text-muted">
           Slash the right answer. Miss it, and you lose a life.
         </p>
-        <div className="mt-8 flex items-end justify-center gap-2">
-          {FRUIT_KINDS.map((f) => (
-            <img
-              key={f.id}
-              src={f.src}
-              alt=""
-              className="h-11 w-11 object-contain sm:h-12 sm:w-12"
-              draggable={false}
-            />
-          ))}
-        </div>
       </div>
       <div className="mx-auto flex w-full max-w-sm flex-col gap-3">
         <Button size="xl" className="w-full font-display text-lg" onClick={onPlay}>
@@ -209,12 +197,12 @@ export function HowScreen() {
       body: "The equation sits at the top. Addition, subtraction, multiplication, or division — you pick.",
     },
     {
-      title: "Swipe the right fruit",
-      body: "Fruits fly up with numbers on them. Draw a blade through the correct answer. One fruit per swipe.",
+      title: "Swipe the right number",
+      body: "Water balloons fly up with numbers on them. Draw a blade through the correct answer. One balloon per swipe.",
     },
     {
       title: "Wrong slices cost a life",
-      body: "Hit a decoy, or let the right fruit fall, and you lose a life. Three lives. Combos multiply your score.",
+      body: "Hit a decoy, or let the right balloon fall, and you lose a life. Three lives. Combos multiply your score.",
     },
     {
       title: "Unlock the next rank",
@@ -343,7 +331,7 @@ export function PauseScreen({
     <div className="pointer-events-auto absolute inset-0 z-20 flex items-center justify-center bg-bg/75 px-6">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5">
         <h2 className="font-display text-xl font-semibold">Paused</h2>
-        <p className="mt-1 text-sm text-muted">The fruits will wait.</p>
+        <p className="mt-1 text-sm text-muted">The balloons will wait.</p>
         <div className="mt-5 flex flex-col gap-2">
           <Button size="lg" onClick={onResume}>
             Resume

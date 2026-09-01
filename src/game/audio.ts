@@ -77,18 +77,21 @@ export class GameAudio {
   }
 
   slice() {
-    this.noise(0.09, 0.1, 1800 + Math.random() * 800);
-    this.tone(420 + Math.random() * 80, 0.06, "triangle", 0.05);
+    this.noise(0.16, 0.12, 380 + Math.random() * 160);
+    this.noise(0.09, 0.07, 820 + Math.random() * 200);
+    this.tone(160 + Math.random() * 40, 0.09, "sine", 0.045, 80);
   }
 
   correct() {
+    this.slice();
     this.tone(523.25, 0.1, "sine", 0.1);
     this.tone(659.25, 0.14, "sine", 0.08);
   }
 
   wrong() {
-    this.tone(180, 0.18, "square", 0.07, 90);
-    this.noise(0.12, 0.06, 200);
+    this.noise(0.22, 0.07, 2600);
+    this.noise(0.16, 0.045, 4200);
+    this.tone(280, 0.12, "sine", 0.03, 120);
   }
 
   miss() {

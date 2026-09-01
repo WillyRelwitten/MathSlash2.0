@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0c0c0b;
-  --color-surface: #161513;
-  --color-raised: #1e1c19;
-  --color-fg: #f4f0ea;
-  --color-muted: #9c958c;
-  --color-primary: #ece7df;
-  --color-primary-fg: #141210;
-  --color-border: #2c2925;
+  --color-bg: #cfe8f2;
+  --color-surface: #fff8ee;
+  --color-raised: #f3e6cf;
+  --color-fg: #1c2a33;
+  --color-muted: #5a6d78;
+  --color-primary: #1d6f86;
+  --color-primary-fg: #f7fbff;
+  --color-border: #d4c4a8;
   --color-danger: #c4564a;
-  --color-ok: #4a9a6e;
+  --color-ok: #2a8a68;
   --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
   --radius-sm: 8px;
@@ -42,13 +42,13 @@
     user-select: none;
   }
 
-  .dojo-photo {
-    background-image: url("/bg-portrait.jpg");
+  .beach-photo {
+    background-image: url("/assets/craftpix/beach-portrait.png");
   }
 
   @media (min-aspect-ratio: 1/1) {
-    .dojo-photo {
-      background-image: url("/bg-landscape.jpg");
+    .beach-photo {
+      background-image: url("/assets/craftpix/beach-landscape.png");
     }
   }
 

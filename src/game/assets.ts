@@ -1,17 +1,20 @@
-export interface FruitKind {
+export interface BalloonKind {
   id: string;
-  src: string;
-  juice: string;
+  fill: string;
+  rim: string;
+  highlight: string;
+  splash: string;
   scale: number;
 }
 
-export const FRUIT_KINDS: FruitKind[] = [
-  { id: "watermelon", src: "/sprites/watermelon.png", juice: "#e14b4b", scale: 1.08 },
-  { id: "apple", src: "/sprites/apple.png", juice: "#dc3b3b", scale: 0.96 },
-  { id: "orange", src: "/sprites/orange.png", juice: "#f08a2a", scale: 0.98 },
-  { id: "banana", src: "/sprites/banana.png", juice: "#e8c43a", scale: 1.1 },
-  { id: "kiwi", src: "/sprites/kiwi.png", juice: "#8fbf3a", scale: 0.92 },
-  { id: "strawberry", src: "/sprites/strawberry.png", juice: "#e0365a", scale: 0.9 },
+/** Beach-toy water balloons. Drawn in canvas — no sprite images. */
+export const BALLOON_KINDS: BalloonKind[] = [
+  { id: "pink", fill: "#ff6ba8", rim: "#c73d7a", highlight: "#ffd4e8", splash: "#7eeaf6", scale: 1 },
+  { id: "yellow", fill: "#ffd24a", rim: "#c99a12", highlight: "#fff3c2", splash: "#ffffff", scale: 1 },
+  { id: "cyan", fill: "#3ad6e8", rim: "#1696a8", highlight: "#c8f6fc", splash: "#7eeaf6", scale: 1 },
+  { id: "lime", fill: "#8ee63a", rim: "#4fa812", highlight: "#d8f9b0", splash: "#ffffff", scale: 1 },
+  { id: "orange", fill: "#ff8a3a", rim: "#c85a12", highlight: "#ffd4b0", splash: "#7eeaf6", scale: 1 },
+  { id: "magenta", fill: "#e84ad8", rim: "#a81ea0", highlight: "#f8c4f2", splash: "#ffffff", scale: 1 },
 ];
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -25,7 +28,6 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 export interface GameAssets {
-  fruits: Record<string, HTMLImageElement>;
   portrait: HTMLImageElement;
   landscape: HTMLImageElement;
 }
@@ -33,20 +35,18 @@ export interface GameAssets {
 let cache: GameAssets | null = null;
 let pending: Promise<GameAssets> | null = null;
 
+const BEACH_LANDSCAPE = "/assets/craftpix/beach-landscape.png";
+const BEACH_PORTRAIT = "/assets/craftpix/beach-portrait.png";
+
 export function preloadAssets(): Promise<GameAssets> {
   if (cache) return Promise.resolve(cache);
   if (pending) return pending;
   pending = (async () => {
-    const [portrait, landscape, ...fruitImgs] = await Promise.all([
-      loadImage("/bg-portrait.jpg"),
-      loadImage("/bg-landscape.jpg"),
-      ...FRUIT_KINDS.map((f) => loadImage(f.src)),
+    const [portrait, landscape] = await Promise.all([
+      loadImage(BEACH_PORTRAIT),
+      loadImage(BEACH_LANDSCAPE),
     ]);
-    const fruits: Record<string, HTMLImageElement> = {};
-    FRUIT_KINDS.forEach((f, i) => {
-      fruits[f.id] = fruitImgs[i]!;
-    });
-    cache = { fruits, portrait, landscape };
+    cache = { portrait, landscape };
     return cache;
   })();
   return pending;

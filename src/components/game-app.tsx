@@ -140,11 +140,11 @@ export function GameApp() {
 
   return (
     <main className="relative h-dvh w-full overflow-hidden bg-bg text-fg">
-      <div className="dojo-photo absolute inset-0 bg-cover bg-center" />
-      <div className="absolute inset-0 bg-bg/55" />
+      <div className="beach-photo absolute inset-0 bg-cover bg-center" />
+      <div className="absolute inset-0 bg-bg/32" />
 
       {playing ? (
-        <canvas ref={canvasRef} className="absolute inset-0 z-[1] h-full w-full touch-none" />
+        <canvas ref={canvasRef} className="absolute inset-0 z-[1] h-full w-full touch-none pointer-events-auto" />
       ) : null}
 
       <div className="pointer-events-none absolute inset-0 z-[2]">

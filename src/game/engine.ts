@@ -1,4 +1,4 @@
-import { FRUIT_KINDS, type FruitKind, type GameAssets } from "./assets.ts";
+import { BALLOON_KINDS, type BalloonKind, type GameAssets } from "./assets.ts";
 import { pathLength, swipeHitsCircle, type Pt } from "./geometry.ts";
 import { makeProblem, problemKey } from "./problems.ts";
 import type { Problem, RunConfig, HudSnap } from "./types.ts";
@@ -7,13 +7,15 @@ export type { HudSnap };
 
 const STEP = 1 / 60;
 const MAX_DT = 0.1;
-const MIN_SWIPE = 28;
+const MIN_SWIPE = 12;
 const BASE_SCORE: Record<RunConfig["difficulty"], number> = {
   easy: 100,
   medium: 160,
   hard: 240,
   expert: 360,
 };
+const WATER_COLORS = ["#7eeaf6", "#ffffff", "#5ad4e8", "#c8f8ff", "#3ec8d6", "#e8ffff"];
+const FIZZLE_COLORS = ["#f7f3ea", "#ffffff", "#e6dfd2", "#d9d2c6"];
 
 export interface RunResult {
   score: number;
@@ -21,9 +23,9 @@ export interface RunResult {
   maxCombo: number;
 }
 
-interface Fruit {
+interface Balloon {
   id: number;
-  kind: FruitKind;
+  kind: BalloonKind;
   value: number;
   isAnswer: boolean;
   x: number;
@@ -36,20 +38,8 @@ interface Fruit {
   alive: boolean;
   sliced: boolean;
   fade: number;
-}
-
-interface Half {
-  kind: FruitKind;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  r: number;
-  rot: number;
-  spin: number;
-  side: 0 | 1;
-  sliceAngle: number;
-  life: number;
+  /** 0 = full; >0 shrinking fizzle. Correct pops skip this. */
+  deflate: number;
 }
 
 interface Particle {
@@ -61,14 +51,7 @@ interface Particle {
   life: number;
   max: number;
   color: string;
-}
-
-interface Stain {
-  x: number;
-  y: number;
-  r: number;
-  color: string;
-  life: number;
+  kind: "water" | "fizzle";
 }
 
 interface Floater {
@@ -89,6 +72,16 @@ export interface EngineHandlers {
   onEvent: (kind: "correct" | "wrong" | "miss" | "combo" | "throw") => void;
 }
 
+function mixHex(a: string, b: string, t: number): string {
+  const pa = parseInt(a.slice(1), 16);
+  const pb = parseInt(b.slice(1), 16);
+  const m = (x: number, y: number) => Math.round(x + (y - x) * t);
+  const r = m((pa >> 16) & 255, (pb >> 16) & 255);
+  const g = m((pa >> 8) & 255, (pb >> 8) & 255);
+  const bl = m(pa & 255, pb & 255);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | bl).toString(16).slice(1)}`;
+}
+
 export class SliceEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -105,10 +98,8 @@ export class SliceEngine {
   private config: RunConfig | null = null;
   private problem: Problem | null = null;
   private lastKey = "";
-  private fruits: Fruit[] = [];
-  private halves: Half[] = [];
+  private balloons: Balloon[] = [];
   private particles: Particle[] = [];
-  private stains: Stain[] = [];
   private floaters: Floater[] = [];
   private trail: TrailPt[] = [];
   private swiping = false;
@@ -156,10 +147,8 @@ export class SliceEngine {
     this.lives = 3;
     this.solved = 0;
     this.lastKey = "";
-    this.fruits = [];
-    this.halves = [];
+    this.balloons = [];
     this.particles = [];
-    this.stains = [];
     this.floaters = [];
     this.trail = [];
     this.phase = "think";
@@ -202,7 +191,7 @@ export class SliceEngine {
         solved: this.solved,
         phase: this.phase,
         problem: this.problem,
-        fruits: this.fruits
+        fruits: this.balloons
           .filter((f) => f.alive && !f.sliced)
           .map((f) => ({
             x: f.x,
@@ -213,9 +202,9 @@ export class SliceEngine {
           })),
       }),
       sliceValue: (value: number) => {
-        const f = this.fruits.find((x) => x.alive && !x.sliced && x.value === value);
+        const f = this.balloons.find((x) => x.alive && !x.sliced && x.value === value);
         if (!f) return false;
-        this.sliceFruit(f, 0, 1, 0);
+        this.sliceBalloon(f, 0, 1, 0);
         return true;
       },
     };
@@ -230,60 +219,117 @@ export class SliceEngine {
     window.addEventListener("resize", onResize);
     this.unsub.push(() => window.removeEventListener("resize", onResize));
 
-    const toLocal = (e: PointerEvent): Pt => {
+    const toLocal = (clientX: number, clientY: number): Pt => {
       const rect = canvas.getBoundingClientRect();
+      const rw = rect.width || 1;
+      const rh = rect.height || 1;
       return {
-        x: ((e.clientX - rect.left) / rect.width) * this.w,
-        y: ((e.clientY - rect.top) / rect.height) * this.h,
+        x: ((clientX - rect.left) / rw) * this.w,
+        y: ((clientY - rect.top) / rh) * this.h,
       };
     };
 
-    const down = (e: PointerEvent) => {
+    const isHud = (e: Event) => {
+      const el = e.target as HTMLElement | null;
+      return !!el?.closest?.("button, a, input, textarea, [data-ui]");
+    };
+
+    canvas.style.pointerEvents = "auto";
+    canvas.style.touchAction = "none";
+
+    const downAt = (clientX: number, clientY: number) => {
       if (!this.running || this.paused || this.phase === "over") return;
-      e.preventDefault();
-      try {
-        canvas.setPointerCapture(e.pointerId);
-      } catch {
-        /* synthetic events and some browsers */
-      }
       this.swiping = true;
       this.swipeSpent = false;
-      const p = toLocal(e);
+      const p = toLocal(clientX, clientY);
       const now = performance.now() / 1000;
       this.swipePts = [{ ...p, t: now }];
       this.trail.push({ ...p, t: now });
     };
-    const move = (e: PointerEvent) => {
+    const moveAt = (clientX: number, clientY: number) => {
       if (!this.swiping) return;
-      e.preventDefault();
-      const p = toLocal(e);
+      const p = toLocal(clientX, clientY);
       const now = performance.now() / 1000;
       this.swipePts.push({ ...p, t: now });
       this.trail.push({ ...p, t: now });
-      if (this.swipePts.length > 48) this.swipePts.shift();
+      if (this.swipePts.length > 96) this.swipePts.shift();
       this.trySlice();
     };
-    const up = (e: PointerEvent) => {
+    const upAt = () => {
       if (!this.swiping) return;
-      e.preventDefault();
       this.swiping = false;
       this.swipePts = [];
-      try {
-        canvas.releasePointerCapture(e.pointerId);
-      } catch {
-        /* already released */
-      }
     };
 
-    canvas.addEventListener("pointerdown", down, { passive: false });
-    canvas.addEventListener("pointermove", move, { passive: false });
-    canvas.addEventListener("pointerup", up, { passive: false });
-    canvas.addEventListener("pointercancel", up, { passive: false });
+    const onPointerDown = (e: PointerEvent) => {
+      if (isHud(e)) return;
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      downAt(e.clientX, e.clientY);
+      e.preventDefault();
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (!this.swiping) return;
+      moveAt(e.clientX, e.clientY);
+      e.preventDefault();
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      if (!this.swiping) return;
+      upAt();
+      e.preventDefault();
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      if (isHud(e)) return;
+      downAt(e.clientX, e.clientY);
+    };
+    const onMouseMove = (e: MouseEvent) => {
+      if (!this.swiping) return;
+      moveAt(e.clientX, e.clientY);
+    };
+    const onMouseUp = () => upAt();
+    const onTouchStart = (e: TouchEvent) => {
+      if (isHud(e)) return;
+      const t = e.touches[0];
+      if (!t) return;
+      downAt(t.clientX, t.clientY);
+      e.preventDefault();
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      moveAt(t.clientX, t.clientY);
+      e.preventDefault();
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (!this.swiping) return;
+      upAt();
+      e.preventDefault();
+    };
+
+    const opts: AddEventListenerOptions = { capture: true, passive: false };
+    window.addEventListener("pointerdown", onPointerDown, opts);
+    window.addEventListener("pointermove", onPointerMove, opts);
+    window.addEventListener("pointerup", onPointerUp, opts);
+    window.addEventListener("pointercancel", onPointerUp, opts);
+    window.addEventListener("mousedown", onMouseDown, opts);
+    window.addEventListener("mousemove", onMouseMove, opts);
+    window.addEventListener("mouseup", onMouseUp, opts);
+    window.addEventListener("touchstart", onTouchStart, opts);
+    window.addEventListener("touchmove", onTouchMove, opts);
+    window.addEventListener("touchend", onTouchEnd, opts);
+    window.addEventListener("touchcancel", onTouchEnd, opts);
     this.unsub.push(() => {
-      canvas.removeEventListener("pointerdown", down);
-      canvas.removeEventListener("pointermove", move);
-      canvas.removeEventListener("pointerup", up);
-      canvas.removeEventListener("pointercancel", up);
+      window.removeEventListener("pointerdown", onPointerDown, opts);
+      window.removeEventListener("pointermove", onPointerMove, opts);
+      window.removeEventListener("pointerup", onPointerUp, opts);
+      window.removeEventListener("pointercancel", onPointerUp, opts);
+      window.removeEventListener("mousedown", onMouseDown, opts);
+      window.removeEventListener("mousemove", onMouseMove, opts);
+      window.removeEventListener("mouseup", onMouseUp, opts);
+      window.removeEventListener("touchstart", onTouchStart, opts);
+      window.removeEventListener("touchmove", onTouchMove, opts);
+      window.removeEventListener("touchend", onTouchEnd, opts);
+      window.removeEventListener("touchcancel", onTouchEnd, opts);
     });
   }
 
@@ -353,13 +399,13 @@ export class SliceEngine {
 
   private spawnThrow() {
     if (!this.problem) return;
-    this.fruits = [];
+    this.balloons = [];
     this.throwHadWrong = false;
     this.phase = "throw";
     const values = [this.problem.answer, ...this.problem.distractors].sort(
       () => Math.random() - 0.5,
     );
-    const kinds = [...FRUIT_KINDS].sort(() => Math.random() - 0.5);
+    const kinds = [...BALLOON_KINDS].sort(() => Math.random() - 0.5);
     const n = values.length;
     const g = this.gravity();
     const pad = 24;
@@ -371,7 +417,6 @@ export class SliceEngine {
       const slot = n <= 1 ? 0 : (i / (n - 1)) * 2 - 1;
       const edge = pad + r;
       const usable = Math.max(40, this.w - edge * 2);
-      // Bunch near the middle so they have room to fan out as they rise.
       const packedHalf = n <= 1 ? 0 : (r * 2.1 * (n - 1)) / 2;
       const startHalf = Math.min(usable * 0.36, Math.max(packedHalf, usable * 0.18));
       let x =
@@ -383,12 +428,10 @@ export class SliceEngine {
       const apex = this.h * (0.2 + Math.random() * 0.16);
       const rise = Math.max(80, y - apex);
       const vy = -Math.sqrt(2 * g * rise) * (0.92 + Math.random() * 0.12);
-      // Aim the *end* of the flight at a wider band so they drift apart in the
-      // air without already being off-screen at the apex.
       const endHalf = Math.min(usable * 0.5, Math.max(startHalf * 1.2, usable * 0.46));
       const tOff = Math.max(0.7, (Math.abs(vy) / g) * 2);
       const vx = (this.w * 0.5 + slot * endHalf - x) / tOff + (Math.random() - 0.5) * 14;
-      this.fruits.push({
+      this.balloons.push({
         id: this.nextId++,
         kind,
         value: values[i]!,
@@ -398,32 +441,31 @@ export class SliceEngine {
         vx,
         vy,
         r,
-        rot: Math.random() * Math.PI * 2,
-        spin: (Math.random() - 0.5) * 4.2,
+        rot: (Math.random() - 0.5) * 0.5,
+        spin: (Math.random() - 0.5) * 1.2,
         alive: true,
         sliced: false,
         fade: 1,
+        deflate: 0,
       });
     }
     this.handlers.onEvent("throw");
   }
 
   private gravity(): number {
-    // 25% lighter than the original 1450 so fruit hang in the slice zone longer
     return 1450 * 0.75 * (this.h / 800) * this.speed();
   }
 
   private trySlice() {
     if (this.swipeSpent || this.phase !== "throw" || this.freezeLeft > 0) return;
     if (pathLength(this.swipePts) < MIN_SWIPE) return;
-    const live = this.fruits.filter((f) => f.alive && !f.sliced && f.fade > 0.8);
-    // Prefer the fruit whose center is closest to the latest segment.
-    let best: Fruit | null = null;
+    const live = this.balloons.filter((f) => f.alive && !f.sliced && f.fade > 0.8);
+    let best: Balloon | null = null;
     let bestHit: ReturnType<typeof swipeHitsCircle> | null = null;
     let bestDist = Infinity;
     const last = this.swipePts[this.swipePts.length - 1];
     for (const f of live) {
-      const hit = swipeHitsCircle(this.swipePts, f.x, f.y, f.r * 0.88);
+      const hit = swipeHitsCircle(this.swipePts, f.x, f.y, f.r * 1.25);
       if (!hit.hit) continue;
       const d = last ? Math.hypot(last.x - f.x, last.y - f.y) : 0;
       if (d < bestDist) {
@@ -434,36 +476,28 @@ export class SliceEngine {
     }
     if (!best || !bestHit) return;
     this.swipeSpent = true;
-    this.sliceFruit(best, bestHit.angle, bestHit.nx, bestHit.ny);
+    this.sliceBalloon(best, bestHit.angle, bestHit.nx, bestHit.ny);
   }
 
-  private sliceFruit(f: Fruit, angle: number, nx: number, ny: number) {
+  private sliceBalloon(f: Balloon, _angle: number, nx: number, ny: number) {
     f.sliced = true;
-    f.alive = false;
     try {
       navigator.vibrate?.(12);
     } catch {
       /* ignore */
     }
-    this.spawnHalves(f, angle, nx, ny);
-    this.burst(f.x, f.y, f.kind.juice, nx, ny);
-    this.stains.push({
-      x: f.x,
-      y: f.y + f.r * 0.2,
-      r: f.r * (1.2 + Math.random() * 0.4),
-      color: f.kind.juice,
-      life: 2.4,
-    });
-    if (this.stains.length > 18) this.stains.shift();
-
     if (f.isAnswer) {
+      f.alive = false;
+      this.waterBurst(f.x, f.y, nx, ny);
       this.onCorrect(f);
     } else {
+      f.deflate = 0.02;
+      this.fizzle(f.x, f.y);
       this.onWrong(f);
     }
   }
 
-  private onCorrect(f: Fruit) {
+  private onCorrect(f: Balloon) {
     this.solved += 1;
     this.combo += 1;
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
@@ -474,14 +508,14 @@ export class SliceEngine {
       y: f.y - f.r,
       text: `+${gain}`,
       life: 0.8,
-      color: "#ece7df",
+      color: "#1a2430",
     });
     this.feedback = "correct";
     this.trauma = Math.min(1, this.trauma + 0.22);
     this.flash = 0.18;
     this.freezeLeft = this.reduced ? 0 : 0.045;
     this.handlers.onEvent(this.combo >= 3 ? "combo" : "correct");
-    for (const other of this.fruits) {
+    for (const other of this.balloons) {
       if (!other.sliced && other.alive) {
         other.fade = 0.7;
         other.vy += 220;
@@ -494,7 +528,7 @@ export class SliceEngine {
     this.emitHud();
   }
 
-  private onWrong(f: Fruit) {
+  private onWrong(f: Balloon) {
     this.throwHadWrong = true;
     this.combo = 0;
     this.lives -= 1;
@@ -526,7 +560,7 @@ export class SliceEngine {
     }
     this.phase = "reveal";
     this.thinkLeft = 0.95;
-    this.fruits = [];
+    this.balloons = [];
   }
 
   private beginOver() {
@@ -539,47 +573,47 @@ export class SliceEngine {
     });
   }
 
-  private spawnHalves(f: Fruit, angle: number, nx: number, ny: number) {
-    const impulse = 240;
-    for (const side of [0, 1] as const) {
-      const sign = side === 0 ? -1 : 1;
-      this.halves.push({
-        kind: f.kind,
-        x: f.x + nx * sign * 8,
-        y: f.y + ny * sign * 8,
-        vx: f.vx * 0.4 + nx * sign * impulse,
-        vy: f.vy * 0.25 + ny * sign * impulse * 0.45 - 90,
-        r: f.r,
-        rot: f.rot,
-        spin: f.spin + sign * 6,
-        side,
-        sliceAngle: angle,
-        life: 0.9,
-      });
-    }
-  }
-
-  private burst(x: number, y: number, color: string, nx: number, ny: number) {
-    const n = this.reduced ? 8 : 18;
+  private waterBurst(x: number, y: number, nx: number, ny: number) {
+    const n = this.reduced ? 14 : 32;
     for (let i = 0; i < n; i++) {
-      const a = Math.atan2(ny, nx) + (Math.random() - 0.5) * Math.PI;
-      const sp = 80 + Math.random() * 280;
+      const a = Math.atan2(ny, nx) + (Math.random() - 0.5) * Math.PI * 1.45;
+      const sp = 90 + Math.random() * 340;
       this.particles.push({
         x,
         y,
         vx: Math.cos(a) * sp,
-        vy: Math.sin(a) * sp - 80,
-        r: 2.5 + Math.random() * 4.5,
-        life: 0.35 + Math.random() * 0.35,
-        max: 0.7,
-        color,
+        vy: Math.sin(a) * sp - 140,
+        r: 3 + Math.random() * 6.5,
+        life: 0.4 + Math.random() * 0.45,
+        max: 0.85,
+        color: WATER_COLORS[i % WATER_COLORS.length]!,
+        kind: "water",
+      });
+    }
+  }
+
+  private fizzle(x: number, y: number) {
+    const n = this.reduced ? 6 : 16;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 18 + Math.random() * 95;
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 16,
+        r: 1.2 + Math.random() * 2.4,
+        life: 0.28 + Math.random() * 0.3,
+        max: 0.58,
+        color: FIZZLE_COLORS[i % FIZZLE_COLORS.length]!,
+        kind: "fizzle",
       });
     }
   }
 
   private step(dt: number) {
     const now = performance.now() / 1000;
-    this.trail = this.trail.filter((p) => now - p.t < 0.16);
+    this.trail = this.trail.filter((p) => now - p.t < 0.45);
 
     if (this.freezeLeft > 0) {
       this.freezeLeft -= dt;
@@ -605,8 +639,18 @@ export class SliceEngine {
 
     const g = this.gravity();
 
-    for (const f of this.fruits) {
-      if (f.sliced) continue;
+    for (const f of this.balloons) {
+      if (f.sliced) {
+        if (f.deflate > 0) {
+          f.deflate = Math.min(1, f.deflate + dt * 2.5);
+          f.vy += g * 0.25 * dt;
+          f.x += f.vx * dt * 0.25;
+          f.y += f.vy * dt * 0.35;
+          f.rot += f.spin * dt * 0.4;
+          if (f.deflate >= 1) f.alive = false;
+        }
+        continue;
+      }
       f.vy += g * dt;
       f.x += f.vx * dt;
       f.y += f.vy * dt;
@@ -625,25 +669,13 @@ export class SliceEngine {
       }
     }
 
-    for (const h of this.halves) {
-      h.vy += g * dt;
-      h.x += h.vx * dt;
-      h.y += h.vy * dt;
-      h.rot += h.spin * dt;
-      h.life -= dt;
-    }
-    this.halves = this.halves.filter((h) => h.life > 0 && h.y < this.h + 80);
-
     for (const p of this.particles) {
-      p.vy += g * 0.7 * dt;
+      p.vy += (p.kind === "fizzle" ? g * 0.12 : g * 0.85) * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.life -= dt;
     }
     this.particles = this.particles.filter((p) => p.life > 0);
-
-    for (const s of this.stains) s.life -= dt;
-    this.stains = this.stains.filter((s) => s.life > 0);
 
     for (const f of this.floaters) {
       f.y -= 48 * dt;
@@ -669,28 +701,31 @@ export class SliceEngine {
 
     this.drawBg(ctx, w, h);
 
-    for (const s of this.stains) {
-      ctx.globalAlpha = Math.max(0, Math.min(0.28, s.life * 0.14));
-      ctx.fillStyle = s.color;
-      ctx.beginPath();
-      ctx.ellipse(s.x, s.y, s.r, s.r * 0.55, 0.3, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-
     for (const p of this.particles) {
       ctx.globalAlpha = Math.max(0, p.life / p.max);
       ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fill();
+      if (p.kind === "water") {
+        const ang = Math.atan2(p.vy, p.vx);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(ang);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.r * 1.35, p.r * 0.68, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
 
-    for (const h of this.halves) this.drawHalf(ctx, h);
-    for (const f of this.fruits) {
-      if (f.sliced || (!f.alive && f.fade <= 0)) continue;
-      this.drawFruit(ctx, f);
+    for (const f of this.balloons) {
+      if (f.sliced && f.deflate <= 0) continue;
+      if (!f.alive && f.deflate <= 0 && f.fade <= 0) continue;
+      if (f.fade <= 0 && f.deflate <= 0) continue;
+      this.drawBalloon(ctx, f);
     }
 
     this.drawTrail(ctx);
@@ -708,8 +743,8 @@ export class SliceEngine {
     if (this.flash > 0) {
       ctx.fillStyle =
         this.feedback === "wrong" || this.feedback === "miss"
-          ? `rgba(196,86,74,${this.flash * 0.35})`
-          : `rgba(244,240,234,${this.flash * 0.18})`;
+          ? `rgba(196,86,74,${this.flash * 0.28})`
+          : `rgba(126,234,246,${this.flash * 0.22})`;
       ctx.fillRect(0, 0, w, h);
     }
   }
@@ -721,59 +756,87 @@ export class SliceEngine {
     const dh = img.height * scale;
     ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
     const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, "rgba(12,12,11,0.45)");
-    g.addColorStop(0.45, "rgba(12,12,11,0.12)");
-    g.addColorStop(1, "rgba(12,12,11,0.55)");
+    g.addColorStop(0, "rgba(170, 214, 242, 0.10)");
+    g.addColorStop(0.48, "rgba(255, 244, 220, 0.05)");
+    g.addColorStop(1, "rgba(232, 204, 154, 0.16)");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
   }
 
-  private drawFruit(ctx: CanvasRenderingContext2D, f: Fruit) {
-    const img = this.assets.fruits[f.kind.id];
+  private drawBalloon(ctx: CanvasRenderingContext2D, f: Balloon) {
+    const k = f.kind;
+    const def = Math.max(0, Math.min(1, f.deflate));
+    const scale = 1 - def * 0.84;
     ctx.save();
-    ctx.globalAlpha = Math.max(0, Math.min(1, f.fade));
+    ctx.globalAlpha = Math.max(0, Math.min(1, f.fade)) * (1 - def * 0.4);
     ctx.translate(f.x, f.y);
     ctx.rotate(f.rot);
-    const s = f.r * 2;
-    if (img) ctx.drawImage(img, -s / 2, -s / 2, s, s);
-    ctx.rotate(-f.rot);
-    this.drawBadge(ctx, f.value, f.r);
-    ctx.restore();
-  }
 
-  private drawHalf(ctx: CanvasRenderingContext2D, h: Half) {
-    const img = this.assets.fruits[h.kind.id];
-    if (!img) return;
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, Math.min(1, h.life / 0.5));
-    ctx.translate(h.x, h.y);
-    ctx.rotate(h.sliceAngle);
-    ctx.beginPath();
-    if (h.side === 0) ctx.rect(-h.r - 4, -h.r - 4, h.r + 4, h.r * 2 + 8);
-    else ctx.rect(0, -h.r - 4, h.r + 4, h.r * 2 + 8);
-    ctx.clip();
-    ctx.rotate(-h.sliceAngle + h.rot);
-    const s = h.r * 2;
-    ctx.drawImage(img, -s / 2, -s / 2, s, s);
-    ctx.restore();
-  }
+    const r = f.r * scale;
+    const fill = mixHex(k.fill, "#f4efe6", def * 0.72);
+    const rim = mixHex(k.rim, "#cfc8bc", def * 0.72);
+    const hi = mixHex(k.highlight, "#ffffff", def * 0.4);
 
-  private drawBadge(ctx: CanvasRenderingContext2D, value: number, r: number) {
-    const label = String(value);
-    const br = r * (label.length > 2 ? 0.5 : 0.46);
+    const grd = ctx.createRadialGradient(-r * 0.28, -r * 0.32, r * 0.08, 0, r * 0.12, r * 1.05);
+    grd.addColorStop(0, mixHex(fill, "#ffffff", 0.38));
+    grd.addColorStop(0.52, fill);
+    grd.addColorStop(1, rim);
+
     ctx.beginPath();
-    ctx.arc(0, 0, br, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(12,12,11,0.72)";
+    ctx.ellipse(0, -r * 0.05, r * 0.98, r * 1.02, 0, 0, Math.PI * 2);
+    ctx.fillStyle = grd;
     ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(244,240,234,0.35)";
+    ctx.lineWidth = Math.max(2.2, r * 0.06);
+    ctx.strokeStyle = rim;
     ctx.stroke();
-    ctx.fillStyle = "#f4f0ea";
-    const size = label.length > 2 ? r * 0.42 : r * 0.52;
+
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.15, r * 0.78);
+    ctx.quadraticCurveTo(0, r * 0.9, r * 0.15, r * 0.78);
+    ctx.lineTo(r * 0.09, r * 1.02);
+    ctx.quadraticCurveTo(0, r * 1.12, -r * 0.09, r * 1.02);
+    ctx.closePath();
+    ctx.fillStyle = rim;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.ellipse(0, r * 1.13, r * 0.16, r * 0.11, 0, 0, Math.PI * 2);
+    ctx.fillStyle = mixHex(rim, "#1a1814", 0.18);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(0, r * 1.13, r * 0.09, r * 0.065, 0, 0, Math.PI * 2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.28, -r * 0.38, r * 0.22, r * 0.14, -0.5, 0, Math.PI * 2);
+    ctx.fillStyle = hi;
+    ctx.globalAlpha *= 0.78;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.06, -r * 0.54, r * 0.08, r * 0.05, 0.45, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.fill();
+    ctx.globalAlpha = Math.max(0, Math.min(1, f.fade)) * (1 - def * 0.4);
+
+    ctx.rotate(-f.rot);
+    this.drawBalloonNumber(ctx, f.value, r);
+    ctx.restore();
+  }
+
+  private drawBalloonNumber(ctx: CanvasRenderingContext2D, value: number, r: number) {
+    const label = String(value);
+    const size = label.length > 2 ? r * 0.7 : r * 0.86;
     ctx.font = `800 ${Math.round(size)}px Sora, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(label, 0, 1);
+    ctx.lineJoin = "round";
+    ctx.miterLimit = 2;
+    ctx.lineWidth = Math.max(4, size * 0.18);
+    ctx.strokeStyle = "rgba(255,255,255,0.94)";
+    ctx.fillStyle = "#1a2430";
+    ctx.strokeText(label, 0, -r * 0.06);
+    ctx.fillText(label, 0, -r * 0.06);
   }
 
   private drawTrail(ctx: CanvasRenderingContext2D) {
@@ -784,9 +847,9 @@ export class SliceEngine {
     for (let i = 1; i < this.trail.length; i++) {
       const a = this.trail[i - 1]!;
       const b = this.trail[i]!;
-      const age = 1 - (now - b.t) / 0.16;
+      const age = 1 - (now - b.t) / 0.45;
       if (age <= 0) continue;
-      ctx.strokeStyle = `rgba(244,240,234,${0.2 + 0.75 * age})`;
+      ctx.strokeStyle = `rgba(18,72,96,${0.18 + 0.7 * age})`;
       ctx.lineWidth = 2 + 13 * age;
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
