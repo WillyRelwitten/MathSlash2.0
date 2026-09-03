@@ -8,12 +8,14 @@ import {
   PlayHud,
   ScoresScreen,
   SetupScreen,
+  ThemeScreen,
 } from "@/components/overlays";
 import { preloadAssets } from "@/game/assets";
 import { audio } from "@/game/audio";
 import { SliceEngine } from "@/game/engine";
 import { useGame } from "@/game/store";
 import type { Mode, Op } from "@/game/types";
+import { cn } from "@/lib/utils";
 
 export function GameApp() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -24,6 +26,7 @@ export function GameApp() {
   const setHud = useGame((s) => s.setHud);
   const finishRun = useGame((s) => s.finishRun);
   const mode = useGame((s) => s.mode);
+  const theme = useGame((s) => s.theme);
   const [bootError, setBootError] = useState<string | null>(null);
   const playing = screen === "playing" || screen === "paused" || screen === "over";
 
@@ -36,6 +39,11 @@ export function GameApp() {
   useEffect(() => {
     audio.setMuted(save.muted);
   }, [save.muted]);
+
+  useEffect(() => {
+    audio.setTheme(theme);
+    engineRef.current?.setTheme(theme);
+  }, [theme]);
 
   useEffect(() => {
     engineRef.current?.setShake(save.shake);
@@ -77,9 +85,10 @@ export function GameApp() {
         },
       });
       engine.setShake(useGame.getState().save.shake);
+      engine.setTheme(useGame.getState().theme);
       engineRef.current = engine;
       window.__mathSlash = engine.debug();
-      engine.start(useGame.getState().config, useGame.getState().mode);
+      engine.start(useGame.getState().config, useGame.getState().mode, useGame.getState().theme);
     })();
     return () => {
       cancelled = true;
@@ -144,14 +153,35 @@ export function GameApp() {
     audio.unlock();
     setScreen("playing");
     requestAnimationFrame(() => {
-      engineRef.current?.start(useGame.getState().config, useGame.getState().mode);
+      engineRef.current?.start(
+        useGame.getState().config,
+        useGame.getState().mode,
+        useGame.getState().theme,
+      );
     });
   };
 
   return (
-    <main className="relative h-dvh w-full overflow-hidden bg-bg text-fg">
-      <div className="beach-photo absolute inset-0 bg-cover bg-center" />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-bg/16 to-bg/44" />
+    <main
+      className={cn(
+        "relative h-dvh w-full overflow-hidden bg-bg text-fg",
+        theme === "cave" && "world-cave",
+      )}
+    >
+      <div
+        className={cn(
+          "absolute inset-0 bg-cover bg-center",
+          theme === "cave" ? "cave-photo" : "beach-photo",
+        )}
+      />
+      <div
+        className={cn(
+          "absolute inset-0",
+          theme === "cave"
+            ? "bg-gradient-to-b from-black/50 via-black/35 to-black/62"
+            : "bg-gradient-to-b from-transparent via-bg/16 to-bg/44",
+        )}
+      />
 
       {playing ? (
         <canvas ref={canvasRef} className="absolute inset-0 z-[1] h-full w-full touch-none pointer-events-auto" />
@@ -176,6 +206,7 @@ export function GameApp() {
             {screen === "junior" ? <JuniorScreen onPick={startJunior} /> : null}
             {screen === "how" ? <HowScreen /> : null}
             {screen === "scores" ? <ScoresScreen /> : null}
+            {screen === "themes" ? <ThemeScreen /> : null}
             {screen === "playing" || screen === "paused" || screen === "over" ? (
               <PlayHud onPause={pause} />
             ) : null}

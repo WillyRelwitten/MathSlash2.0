@@ -9,6 +9,7 @@ import {
   persistSave,
   recordRun,
 } from "./save.ts";
+import { DEFAULT_THEME, type ThemeId } from "./themes.ts";
 
 export type Screen =
   | "home"
@@ -16,6 +17,7 @@ export type Screen =
   | "junior"
   | "how"
   | "scores"
+  | "themes"
   | "playing"
   | "paused"
   | "over";
@@ -34,11 +36,13 @@ interface GameState {
   screen: Screen;
   mode: Mode;
   config: RunConfig;
+  theme: ThemeId;
   save: SaveData;
   hud: HudSnap;
   lastRun: LastRun | null;
   setScreen: (s: Screen) => void;
   setMode: (m: Mode) => void;
+  setTheme: (theme: ThemeId) => void;
   patchConfig: (p: Partial<RunConfig>) => void;
   applyLastClassic: () => void;
   rememberClassic: () => void;
@@ -79,11 +83,17 @@ export const useGame = create<GameState>((set, get) => ({
   screen: "home",
   mode: "classic",
   config: booted.config,
+  theme: booted.save.theme ?? DEFAULT_THEME,
   save: booted.save,
   hud: idleHud,
   lastRun: null,
   setScreen: (screen) => set({ screen }),
   setMode: (mode) => set({ mode }),
+  setTheme: (theme) => {
+    const save = { ...get().save, theme };
+    persistSave(save);
+    set({ save, theme });
+  },
   patchConfig: (p) => {
     const config = { ...get().config, ...p };
     if (p.op && p.op !== "mul" && p.op !== "div" && p.op !== "mix") {

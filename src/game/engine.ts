@@ -1,6 +1,17 @@
-import { BALLOON_KINDS, type BalloonKind, type GameAssets } from "./assets.ts";
+import { backdropFor, type BalloonKind, type GameAssets } from "./assets.ts";
 import { pathLength, swipeHitsCircle, type Pt } from "./geometry.ts";
 import { makeProblem, problemKey } from "./problems.ts";
+import {
+  CHIP_COLORS,
+  DEFAULT_THEME,
+  DUST_COLORS,
+  FIZZLE_COLORS,
+  SPARK_COLORS,
+  TRAIL_RGB,
+  WATER_COLORS,
+  kindsFor,
+  type ThemeId,
+} from "./themes.ts";
 import type { Mode, Problem, RunConfig, HudSnap } from "./types.ts";
 
 export type { HudSnap };
@@ -14,8 +25,6 @@ const BASE_SCORE: Record<RunConfig["difficulty"], number> = {
   hard: 240,
   expert: 360,
 };
-const WATER_COLORS = ["#7eeaf6", "#ffffff", "#5ad4e8", "#c8f8ff", "#3ec8d6", "#e8ffff"];
-const FIZZLE_COLORS = ["#f7f3ea", "#ffffff", "#e6dfd2", "#d9d2c6"];
 
 export interface RunResult {
   score: number;
@@ -23,6 +32,7 @@ export interface RunResult {
   maxCombo: number;
 }
 
+/** Projectile. Beach draws a water balloon; cave draws a rock. Same physics either way. */
 interface Balloon {
   id: number;
   kind: BalloonKind;
@@ -38,9 +48,11 @@ interface Balloon {
   alive: boolean;
   sliced: boolean;
   fade: number;
-  /** 0 = full; >0 shrinking fizzle. Correct pops skip this. */
+  /** 0 = full; >0 shrinking fizzle / crumble. Correct pops skip this. */
   deflate: number;
 }
+
+type ParticleKind = "water" | "fizzle" | "dust" | "spark" | "shard" | "chip";
 
 interface Particle {
   x: number;
@@ -51,7 +63,9 @@ interface Particle {
   life: number;
   max: number;
   color: string;
-  kind: "water" | "fizzle";
+  kind: ParticleKind;
+  rot?: number;
+  spin?: number;
 }
 
 interface Floater {
@@ -70,6 +84,11 @@ export interface EngineHandlers {
   onHud: (hud: HudSnap) => void;
   onOver: (result: RunResult) => void;
   onEvent: (kind: "correct" | "wrong" | "miss" | "combo" | "throw") => void;
+}
+
+function rockJitter(seed: number, i: number): number {
+  const x = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453;
+  return x - Math.floor(x);
 }
 
 function mixHex(a: string, b: string, t: number): string {
@@ -97,6 +116,7 @@ export class SliceEngine {
   private dpr = 1;
   private config: RunConfig | null = null;
   private mode: Mode = "classic";
+  private theme: ThemeId = DEFAULT_THEME;
   private problem: Problem | null = null;
   private lastKey = "";
   private balloons: Balloon[] = [];
@@ -140,9 +160,14 @@ export class SliceEngine {
     this.shakeOn = on;
   }
 
-  start(config: RunConfig, mode: Mode = "classic") {
+  setTheme(theme: ThemeId) {
+    this.theme = theme;
+  }
+
+  start(config: RunConfig, mode: Mode = "classic", theme: ThemeId = DEFAULT_THEME) {
     this.config = config;
     this.mode = mode;
+    this.theme = theme;
     this.score = 0;
     this.combo = 0;
     this.maxCombo = 0;
@@ -407,7 +432,7 @@ export class SliceEngine {
     const values = [this.problem.answer, ...this.problem.distractors].sort(
       () => Math.random() - 0.5,
     );
-    const kinds = [...BALLOON_KINDS].sort(() => Math.random() - 0.5);
+    const kinds = [...kindsFor(this.theme)].sort(() => Math.random() - 0.5);
     const n = values.length;
     const baseR = Math.min(72, Math.max(44, Math.min(this.w, this.h) * 0.09));
 
@@ -509,11 +534,13 @@ export class SliceEngine {
     }
     if (f.isAnswer) {
       f.alive = false;
-      this.waterBurst(f.x, f.y, nx, ny);
+      if (this.theme === "cave") this.rockShatter(f.x, f.y, nx, ny, f.kind);
+      else this.waterBurst(f.x, f.y, nx, ny);
       this.onCorrect(f);
     } else {
       f.deflate = 0.02;
-      this.fizzle(f.x, f.y);
+      if (this.theme === "cave") this.rockChip(f.x, f.y, f.kind);
+      else this.fizzle(f.x, f.y);
       this.onWrong(f);
     }
   }
@@ -529,7 +556,7 @@ export class SliceEngine {
       y: f.y - f.r,
       text: `+${gain}`,
       life: 0.8,
-      color: "#1a2430",
+      color: this.theme === "cave" ? "#f6efe2" : "#1a2430",
     });
     this.feedback = "correct";
     this.trauma = Math.min(1, this.trauma + 0.22);
@@ -634,6 +661,93 @@ export class SliceEngine {
     }
   }
 
+  private rockShatter(x: number, y: number, nx: number, ny: number, kind: BalloonKind) {
+    const shards = this.reduced ? 8 : 16;
+    const dust = this.reduced ? 10 : 22;
+    const sparks = this.reduced ? 4 : 10;
+    for (let i = 0; i < shards; i++) {
+      const a = Math.atan2(ny, nx) + (Math.random() - 0.5) * Math.PI * 1.5;
+      const sp = 70 + Math.random() * 280;
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 80,
+        r: 4 + Math.random() * 8,
+        life: 0.38 + Math.random() * 0.4,
+        max: 0.8,
+        color: i % 2 === 0 ? kind.fill : (kind.rim ?? kind.fill),
+        kind: "shard",
+        rot: Math.random() * Math.PI,
+        spin: (Math.random() - 0.5) * 10,
+      });
+    }
+    for (let i = 0; i < dust; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 40 + Math.random() * 180;
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 40,
+        r: 2.5 + Math.random() * 5,
+        life: 0.45 + Math.random() * 0.4,
+        max: 0.85,
+        color: DUST_COLORS[i % DUST_COLORS.length]!,
+        kind: "dust",
+      });
+    }
+    for (let i = 0; i < sparks; i++) {
+      const a = Math.atan2(ny, nx) + (Math.random() - 0.5) * 1.2;
+      const sp = 160 + Math.random() * 260;
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 40,
+        r: 1.1 + Math.random() * 1.6,
+        life: 0.18 + Math.random() * 0.16,
+        max: 0.34,
+        color: SPARK_COLORS[i % SPARK_COLORS.length]!,
+        kind: "spark",
+      });
+    }
+  }
+
+  private rockChip(x: number, y: number, kind: BalloonKind) {
+    const n = this.reduced ? 5 : 12;
+    const chips = [kind.fill, kind.rim, kind.highlight, ...CHIP_COLORS];
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 16 + Math.random() * 80;
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 20,
+        r: 1.4 + Math.random() * 2.8,
+        life: 0.3 + Math.random() * 0.28,
+        max: 0.58,
+        color: chips[i % chips.length]!,
+        kind: "chip",
+      });
+    }
+    for (let i = 0; i < 4; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.4;
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(a) * (20 + Math.random() * 40),
+        vy: Math.sin(a) * (20 + Math.random() * 40),
+        r: 1 + Math.random() * 1.4,
+        life: 0.16 + Math.random() * 0.12,
+        max: 0.28,
+        color: SPARK_COLORS[i % SPARK_COLORS.length]!,
+        kind: "spark",
+      });
+    }
+  }
+
   private step(dt: number) {
     const now = performance.now() / 1000;
     this.trail = this.trail.filter((p) => now - p.t < 0.45);
@@ -695,9 +809,20 @@ export class SliceEngine {
     }
 
     for (const p of this.particles) {
-      p.vy += (p.kind === "fizzle" ? g * 0.12 : g * 0.85) * dt;
+      const grav =
+        p.kind === "fizzle" || p.kind === "chip"
+          ? g * 0.12
+          : p.kind === "dust"
+            ? g * 0.35
+            : p.kind === "spark"
+              ? g * 0.08
+              : p.kind === "shard"
+                ? g * 0.95
+                : g * 0.85;
+      p.vy += grav * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
+      if (p.spin) p.rot = (p.rot ?? 0) + p.spin * dt;
       p.life -= dt;
     }
     this.particles = this.particles.filter((p) => p.life > 0);
@@ -729,13 +854,24 @@ export class SliceEngine {
     for (const p of this.particles) {
       ctx.globalAlpha = Math.max(0, p.life / p.max);
       ctx.fillStyle = p.color;
-      if (p.kind === "water") {
+      if (p.kind === "water" || p.kind === "spark") {
         const ang = Math.atan2(p.vy, p.vx);
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(ang);
         ctx.beginPath();
-        ctx.ellipse(0, 0, p.r * 1.35, p.r * 0.68, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, p.r * (p.kind === "spark" ? 2.1 : 1.35), p.r * 0.68, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (p.kind === "shard") {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot ?? 0);
+        ctx.beginPath();
+        ctx.moveTo(p.r, 0);
+        ctx.lineTo(-p.r * 0.55, p.r * 0.7);
+        ctx.lineTo(-p.r * 0.35, -p.r * 0.65);
+        ctx.closePath();
         ctx.fill();
         ctx.restore();
       } else {
@@ -769,26 +905,39 @@ export class SliceEngine {
       ctx.fillStyle =
         this.feedback === "wrong" || this.feedback === "miss"
           ? `rgba(196,86,74,${this.flash * 0.28})`
-          : `rgba(126,234,246,${this.flash * 0.22})`;
+          : this.theme === "cave"
+            ? `rgba(255,176,72,${this.flash * 0.2})`
+            : `rgba(126,234,246,${this.flash * 0.22})`;
       ctx.fillRect(0, 0, w, h);
     }
   }
 
   private drawBg(ctx: CanvasRenderingContext2D, w: number, h: number) {
-    const img = w >= h ? this.assets.landscape : this.assets.portrait;
+    const pair = backdropFor(this.assets, this.theme);
+    const img = w >= h ? pair.landscape : pair.portrait;
     const scale = Math.max(w / img.width, h / img.height);
     const dw = img.width * scale;
     const dh = img.height * scale;
     ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
     const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, "rgba(170, 214, 242, 0.10)");
-    g.addColorStop(0.48, "rgba(255, 244, 220, 0.05)");
-    g.addColorStop(1, "rgba(232, 204, 154, 0.16)");
+    if (this.theme === "cave") {
+      g.addColorStop(0, "rgba(8, 10, 14, 0.22)");
+      g.addColorStop(0.5, "rgba(12, 14, 18, 0.08)");
+      g.addColorStop(1, "rgba(6, 6, 8, 0.28)");
+    } else {
+      g.addColorStop(0, "rgba(170, 214, 242, 0.10)");
+      g.addColorStop(0.48, "rgba(255, 244, 220, 0.05)");
+      g.addColorStop(1, "rgba(232, 204, 154, 0.16)");
+    }
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
   }
 
   private drawBalloon(ctx: CanvasRenderingContext2D, f: Balloon) {
+    if (this.theme === "cave") {
+      this.drawRock(ctx, f);
+      return;
+    }
     const k = f.kind;
     const def = Math.max(0, Math.min(1, f.deflate));
     const scale = 1 - def * 0.84;
@@ -849,6 +998,89 @@ export class SliceEngine {
     ctx.restore();
   }
 
+  private drawRock(ctx: CanvasRenderingContext2D, f: Balloon) {
+    const k = f.kind;
+    const def = Math.max(0, Math.min(1, f.deflate));
+    const scale = 1 - def * 0.42;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, f.fade)) * (1 - def * 0.35);
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.rot);
+
+    const r = f.r * scale;
+    const fill = mixHex(k.fill, "#4a453c", def * 0.55);
+    const rim = mixHex(k.rim, "#2a2620", def * 0.45);
+    const hi = mixHex(k.highlight, "#c8c0b4", def * 0.35);
+    const vein = k.vein ?? hi;
+
+    const grd = ctx.createRadialGradient(-r * 0.22, -r * 0.28, r * 0.1, r * 0.1, r * 0.2, r * 1.1);
+    grd.addColorStop(0, mixHex(fill, hi, 0.28));
+    grd.addColorStop(0.55, fill);
+    grd.addColorStop(1, rim);
+
+    this.rockOutline(ctx, r, f.id);
+    ctx.fillStyle = grd;
+    ctx.fill();
+    ctx.lineWidth = Math.max(2, r * 0.07);
+    ctx.strokeStyle = rim;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.clip();
+    ctx.globalAlpha *= 0.55;
+    ctx.strokeStyle = vein;
+    ctx.lineWidth = Math.max(1.2, r * 0.045);
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.55, -r * 0.1);
+    ctx.quadraticCurveTo(0, r * 0.15, r * 0.5, -r * 0.28);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.strokeStyle = mixHex(rim, "#1a1814", 0.3);
+    ctx.moveTo(-r * 0.2, r * 0.35);
+    ctx.quadraticCurveTo(r * 0.1, r * 0.05, r * 0.42, r * 0.4);
+    ctx.stroke();
+
+    ctx.globalAlpha = Math.max(0, Math.min(1, f.fade)) * (1 - def * 0.35) * 0.5;
+    ctx.fillStyle = hi;
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.28, -r * 0.32, r * 0.18, r * 0.1, -0.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (def > 0) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, f.fade)) * Math.min(1, def * 1.6);
+      ctx.strokeStyle = mixHex(rim, "#1a1612", 0.4);
+      ctx.lineWidth = Math.max(1.4, r * 0.05);
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.15, -r * 0.45);
+      ctx.lineTo(r * 0.05, -r * 0.05);
+      ctx.lineTo(-r * 0.08, r * 0.38);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(r * 0.22, -r * 0.2);
+      ctx.lineTo(r * 0.02, r * 0.12);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.rotate(-f.rot);
+    this.drawBalloonNumber(ctx, f.value, r);
+    ctx.restore();
+  }
+
+  private rockOutline(ctx: CanvasRenderingContext2D, r: number, seed: number) {
+    const n = 8;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 - Math.PI / 2;
+      const jag = 0.78 + rockJitter(seed, i) * 0.26;
+      const x = Math.cos(a) * r * jag;
+      const y = Math.sin(a) * r * jag * 0.94;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+  }
+
   private drawBalloonNumber(ctx: CanvasRenderingContext2D, value: number, r: number) {
     const label = String(value);
     const size = label.length > 2 ? r * 0.7 : r * 0.86;
@@ -874,7 +1106,8 @@ export class SliceEngine {
       const b = this.trail[i]!;
       const age = 1 - (now - b.t) / 0.45;
       if (age <= 0) continue;
-      ctx.strokeStyle = `rgba(18,72,96,${0.18 + 0.7 * age})`;
+      const tint = TRAIL_RGB[this.theme];
+      ctx.strokeStyle = `rgba(${tint.r},${tint.g},${tint.b},${0.18 + 0.7 * age})`;
       ctx.lineWidth = 2 + 13 * age;
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);

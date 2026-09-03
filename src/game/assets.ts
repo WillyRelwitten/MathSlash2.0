@@ -1,21 +1,7 @@
-export interface BalloonKind {
-  id: string;
-  fill: string;
-  rim: string;
-  highlight: string;
-  splash: string;
-  scale: number;
-}
+import { type ThemeId, DEFAULT_THEME } from "./themes.ts";
 
-/** Beach-toy water balloons. Drawn in canvas — no sprite images. */
-export const BALLOON_KINDS: BalloonKind[] = [
-  { id: "pink", fill: "#ff6ba8", rim: "#c73d7a", highlight: "#ffd4e8", splash: "#7eeaf6", scale: 1 },
-  { id: "yellow", fill: "#ffd24a", rim: "#c99a12", highlight: "#fff3c2", splash: "#ffffff", scale: 1 },
-  { id: "cyan", fill: "#3ad6e8", rim: "#1696a8", highlight: "#c8f6fc", splash: "#7eeaf6", scale: 1 },
-  { id: "lime", fill: "#8ee63a", rim: "#4fa812", highlight: "#d8f9b0", splash: "#ffffff", scale: 1 },
-  { id: "orange", fill: "#ff8a3a", rim: "#c85a12", highlight: "#ffd4b0", splash: "#7eeaf6", scale: 1 },
-  { id: "magenta", fill: "#e84ad8", rim: "#a81ea0", highlight: "#f8c4f2", splash: "#ffffff", scale: 1 },
-];
+export type { ProjectileKind as BalloonKind } from "./themes.ts";
+export { BALLOON_KINDS, ROCK_KINDS } from "./themes.ts";
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -27,9 +13,14 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-export interface GameAssets {
+export interface ThemeBackdrop {
   portrait: HTMLImageElement;
   landscape: HTMLImageElement;
+}
+
+export interface GameAssets {
+  beach: ThemeBackdrop;
+  cave: ThemeBackdrop;
 }
 
 let cache: GameAssets | null = null;
@@ -37,16 +28,23 @@ let pending: Promise<GameAssets> | null = null;
 
 const BEACH_LANDSCAPE = "/assets/craftpix/beach-landscape.png";
 const BEACH_PORTRAIT = "/assets/craftpix/beach-portrait.png";
+const CAVE_LANDSCAPE = "/assets/cave/cave-landscape.jpg";
+const CAVE_PORTRAIT = "/assets/cave/cave-portrait.jpg";
 
 export function preloadAssets(): Promise<GameAssets> {
   if (cache) return Promise.resolve(cache);
   if (pending) return pending;
   pending = (async () => {
-    const [portrait, landscape] = await Promise.all([
+    const [beachPortrait, beachLandscape, cavePortrait, caveLandscape] = await Promise.all([
       loadImage(BEACH_PORTRAIT),
       loadImage(BEACH_LANDSCAPE),
+      loadImage(CAVE_PORTRAIT),
+      loadImage(CAVE_LANDSCAPE),
     ]);
-    cache = { portrait, landscape };
+    cache = {
+      beach: { portrait: beachPortrait, landscape: beachLandscape },
+      cave: { portrait: cavePortrait, landscape: caveLandscape },
+    };
     return cache;
   })();
   return pending;
@@ -54,4 +52,8 @@ export function preloadAssets(): Promise<GameAssets> {
 
 export function getAssets(): GameAssets | null {
   return cache;
+}
+
+export function backdropFor(assets: GameAssets, theme: ThemeId = DEFAULT_THEME): ThemeBackdrop {
+  return assets[theme];
 }

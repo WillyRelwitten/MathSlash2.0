@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import {
   BookOpen,
+  Check,
   ChevronLeft,
   Heart,
   Lock,
+  Mountain,
   Pause,
   RotateCcw,
   Smile,
@@ -15,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { difficultyBlurb, neededToUnlock } from "@/game/problems";
 import { ALL_OPS, diffIndex } from "@/game/save";
 import { useGame } from "@/game/store";
+import { THEME_PACKS, THEMES } from "@/game/themes";
 import {
   DIFFS,
   DIFF_LABEL,
@@ -29,15 +32,17 @@ import { cn } from "@/lib/utils";
 
 export function HomeScreen({ onPlay }: { onPlay: () => void }) {
   const setScreen = useGame((s) => s.setScreen);
+  const theme = useGame((s) => s.theme);
+  const pack = THEME_PACKS[theme];
   return (
     <div className="pointer-events-auto relative flex h-full flex-col px-6 pb-8 pt-[max(2rem,env(safe-area-inset-top))]">
       <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <p className="text-xs font-medium tracking-[0.28em] text-muted uppercase">Slash the fact</p>
-        <h1 className="font-display mt-3 text-5xl font-extrabold tracking-tight text-fg sm:text-6xl">
+        <p className="theme-kicker text-xs font-medium tracking-[0.28em] text-muted uppercase">Slash the fact</p>
+        <h1 className="theme-title font-display mt-3 text-5xl font-extrabold tracking-tight text-fg sm:text-6xl">
           MathSlash
         </h1>
-        <p className="mt-3 max-w-xs text-base leading-snug text-muted">
-          Swipe the right number before the balloon splashes back down.
+        <p className="theme-sub mt-3 max-w-xs text-base leading-snug text-muted">
+          {pack.homeSubtitle}
         </p>
       </div>
       <div className="mx-auto flex w-full max-w-sm flex-col gap-3">
@@ -55,6 +60,10 @@ export function HomeScreen({ onPlay }: { onPlay: () => void }) {
         >
           <Smile className="size-5" />
           Junior Mode
+        </Button>
+        <Button variant="secondary" size="lg" className="w-full" onClick={() => setScreen("themes")}>
+          <Mountain className="size-4" />
+          Themes
         </Button>
         <div className="grid grid-cols-2 gap-3">
           <Button variant="secondary" size="lg" onClick={() => setScreen("how")}>
@@ -78,15 +87,15 @@ export function SetupScreen({ onStart }: { onStart: () => void }) {
   return (
     <div className="pointer-events-auto flex h-full flex-col px-5 pb-6 pt-[max(1rem,env(safe-area-inset-top))]">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => setScreen("home")} aria-label="Back">
+        <Button variant="ghost" size="icon" className="theme-ghost" onClick={() => setScreen("home")} aria-label="Back">
           <ChevronLeft className="size-5" />
         </Button>
-        <h2 className="font-display text-lg font-semibold">Set the drill</h2>
+        <h2 className="theme-title font-display text-lg font-semibold">Set the drill</h2>
       </header>
 
       <div className="mx-auto mt-4 flex w-full max-w-md flex-1 flex-col gap-6 overflow-y-auto pb-4">
         <section>
-          <p className="mb-2 text-xs font-medium tracking-wide text-muted uppercase">Operation</p>
+          <p className="theme-sub mb-2 text-xs font-medium tracking-wide text-muted uppercase">Operation</p>
           <div className="grid grid-cols-5 gap-2">
             {(["add", "sub", "mul", "div", "mix"] as OpSel[]).map((op) => (
               <button
@@ -106,12 +115,12 @@ export function SetupScreen({ onStart }: { onStart: () => void }) {
               </button>
             ))}
           </div>
-          <p className="mt-2 text-sm text-muted">{OP_LABEL[config.op]}</p>
+          <p className="theme-sub mt-2 text-sm text-muted">{OP_LABEL[config.op]}</p>
         </section>
 
         {showTables ? (
           <section>
-            <p className="mb-2 text-xs font-medium tracking-wide text-muted uppercase">Table</p>
+            <p className="theme-sub mb-2 text-xs font-medium tracking-wide text-muted uppercase">Table</p>
             <div className="flex flex-wrap gap-2">
               <Chip active={config.table === "all"} onClick={() => patchConfig({ table: "all" })}>
                 All
@@ -130,7 +139,7 @@ export function SetupScreen({ onStart }: { onStart: () => void }) {
         ) : null}
 
         <section>
-          <p className="mb-2 text-xs font-medium tracking-wide text-muted uppercase">Rank</p>
+          <p className="theme-sub mb-2 text-xs font-medium tracking-wide text-muted uppercase">Rank</p>
           <div className="grid grid-cols-2 gap-2">
             {DIFFS.map((d) => {
               const open = isDiffOpen(d);
@@ -169,8 +178,8 @@ export function SetupScreen({ onStart }: { onStart: () => void }) {
           </div>
         </section>
 
-        <p className="text-center text-sm text-muted">
-          Best this setup <span className="tabular-nums text-fg">{best()}</span>
+        <p className="theme-sub text-center text-sm text-muted">
+          Best this setup <span className="theme-title tabular-nums text-fg">{best()}</span>
         </p>
       </div>
 
@@ -178,7 +187,7 @@ export function SetupScreen({ onStart }: { onStart: () => void }) {
         <Button size="xl" className="w-full font-display text-lg" onClick={onStart}>
           Start
         </Button>
-        <p className="mt-2 text-center text-xs text-muted">
+        <p className="theme-sub mt-2 text-center text-xs text-muted">
           {OP_LABEL[config.op]} · {DIFF_LABEL[config.difficulty]}
           {showTables ? ` · ${config.table === "all" ? "All" : config.table}` : ""}
         </p>
@@ -197,10 +206,10 @@ export function JuniorScreen({ onPick }: { onPick: (op: Op) => void }) {
   return (
     <div className="pointer-events-auto flex h-full flex-col px-5 pb-6 pt-[max(1rem,env(safe-area-inset-top))]">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => setScreen("home")} aria-label="Back">
+        <Button variant="ghost" size="icon" className="theme-ghost" onClick={() => setScreen("home")} aria-label="Back">
           <ChevronLeft className="size-5" />
         </Button>
-        <h2 className="font-display text-lg font-semibold">Junior Mode</h2>
+        <h2 className="theme-title font-display text-lg font-semibold">Junior Mode</h2>
       </header>
 
       <div className="mx-auto mt-6 grid w-full max-w-md flex-1 grid-cols-2 content-center gap-3 pb-4">
@@ -246,6 +255,8 @@ function Chip({
 
 export function HowScreen() {
   const setScreen = useGame((s) => s.setScreen);
+  const theme = useGame((s) => s.theme);
+  const pack = THEME_PACKS[theme];
   const steps = [
     {
       title: "Read the problem",
@@ -253,11 +264,11 @@ export function HowScreen() {
     },
     {
       title: "Swipe the right number",
-      body: "Water balloons fly up with numbers on them. Draw a blade through the correct answer. One balloon per swipe.",
+      body: pack.howSwipe,
     },
     {
       title: "Wrong slices cost a life",
-      body: "Hit a decoy, or let the right balloon fall, and you lose a life. Three lives. Combos multiply your score.",
+      body: pack.howWrong,
     },
     {
       title: "Unlock the next rank",
@@ -267,10 +278,10 @@ export function HowScreen() {
   return (
     <div className="pointer-events-auto flex h-full flex-col px-5 pb-6 pt-[max(1rem,env(safe-area-inset-top))]">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => setScreen("home")} aria-label="Back">
+        <Button variant="ghost" size="icon" className="theme-ghost" onClick={() => setScreen("home")} aria-label="Back">
           <ChevronLeft className="size-5" />
         </Button>
-        <h2 className="font-display text-lg font-semibold">How to play</h2>
+        <h2 className="theme-title font-display text-lg font-semibold">How to play</h2>
       </header>
       <ol className="mx-auto mt-6 flex w-full max-w-md flex-1 flex-col gap-4">
         {steps.map((s, i) => (
@@ -303,10 +314,10 @@ export function ScoresScreen() {
   return (
     <div className="pointer-events-auto flex h-full flex-col px-5 pb-6 pt-[max(1rem,env(safe-area-inset-top))]">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => setScreen("home")} aria-label="Back">
+        <Button variant="ghost" size="icon" className="theme-ghost" onClick={() => setScreen("home")} aria-label="Back">
           <ChevronLeft className="size-5" />
         </Button>
-        <h2 className="font-display text-lg font-semibold">Best scores</h2>
+        <h2 className="theme-title font-display text-lg font-semibold">Best scores</h2>
       </header>
       <div className="mx-auto mt-6 w-full max-w-md flex-1 overflow-y-auto">
         {rows.length === 0 ? (
@@ -338,12 +349,12 @@ export function PlayHud({ onPause }: { onPause: () => void }) {
     <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-4 pt-[max(10px,env(safe-area-inset-top))]">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Score</p>
-          <p className="font-display text-2xl tabular-nums leading-none">{hud.score}</p>
+          <p className="hud-muted text-xs font-medium tracking-wide text-muted uppercase">Score</p>
+          <p className="hud-ink font-display text-2xl tabular-nums leading-none">{hud.score}</p>
           {hud.combo >= 2 ? (
             <p className="mt-1 text-xs font-semibold text-ok tabular-nums">×{hud.combo} combo</p>
           ) : (
-            <p className="mt-1 text-xs text-muted">{hud.solved} solved</p>
+            <p className="hud-muted mt-1 text-xs text-muted">{hud.solved} solved</p>
           )}
         </div>
         <div className="pointer-events-auto flex items-center gap-2">
@@ -368,7 +379,7 @@ export function PlayHud({ onPause }: { onPause: () => void }) {
             {hud.reveal}
           </p>
         ) : (
-          <p className="font-display text-4xl font-extrabold tracking-tight text-fg sm:text-5xl">
+          <p className="hud-ink font-display text-4xl font-extrabold tracking-tight text-fg sm:text-5xl">
             {hud.problem}
           </p>
         )}
@@ -384,12 +395,12 @@ export function PauseScreen({
   onResume: () => void;
   onQuit: () => void;
 }) {
-  const { save, toggleMute, toggleShake } = useGame();
+  const { save, toggleMute, toggleShake, theme } = useGame();
   return (
     <div className="pointer-events-auto absolute inset-0 z-20 flex items-center justify-center bg-bg/75 px-6">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5">
         <h2 className="font-display text-xl font-semibold">Paused</h2>
-        <p className="mt-1 text-sm text-muted">The balloons will wait.</p>
+        <p className="mt-1 text-sm text-muted">{THEME_PACKS[theme].pauseWait}</p>
         <div className="mt-5 flex flex-col gap-2">
           <Button size="lg" onClick={onResume}>
             Resume
@@ -446,6 +457,66 @@ export function OverScreen({ onAgain, onMenu }: { onAgain: () => void; onMenu: (
             Menu
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function ThemeScreen() {
+  const theme = useGame((s) => s.theme);
+  const setTheme = useGame((s) => s.setTheme);
+  const setScreen = useGame((s) => s.setScreen);
+
+  return (
+    <div className="pointer-events-auto flex h-full flex-col px-5 pb-6 pt-[max(1rem,env(safe-area-inset-top))]">
+      <header className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" className="theme-ghost" onClick={() => setScreen("home")} aria-label="Back">
+          <ChevronLeft className="size-5" />
+        </Button>
+        <h2 className="theme-title font-display text-lg font-semibold">Themes</h2>
+      </header>
+      <p className="theme-sub mx-auto mt-3 w-full max-w-md text-sm text-muted">
+        Same swipe and same math. Pick the world you want to play in.
+      </p>
+      <div className="mx-auto mt-5 flex w-full max-w-md flex-1 flex-col gap-4">
+        {THEMES.map((id) => {
+          const pack = THEME_PACKS[id];
+          const active = theme === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => {
+                setTheme(id);
+                setScreen("home");
+              }}
+              className={cn(
+                "overflow-hidden rounded-2xl border-2 text-left",
+                active ? "border-primary ring-2 ring-primary/35" : "border-border",
+              )}
+              aria-pressed={active}
+            >
+              <div
+                className={cn(
+                  "h-32 bg-cover bg-center sm:h-40",
+                  id === "cave" ? "cave-photo" : "beach-photo",
+                )}
+              />
+              <div className="flex items-start justify-between gap-3 bg-surface px-4 py-3">
+                <div>
+                  <h3 className="font-display text-lg font-semibold">{pack.label}</h3>
+                  <p className="mt-0.5 text-sm text-muted">{pack.tagline}</p>
+                </div>
+                {active ? (
+                  <span className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-ok">
+                    <Check className="size-3.5" />
+                    Playing
+                  </span>
+                ) : null}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
