@@ -27,8 +27,13 @@ export function GameApp() {
   const finishRun = useGame((s) => s.finishRun);
   const mode = useGame((s) => s.mode);
   const theme = useGame((s) => s.theme);
+  const hydrateTheme = useGame((s) => s.hydrateTheme);
   const [bootError, setBootError] = useState<string | null>(null);
   const playing = screen === "playing" || screen === "paused" || screen === "over";
+
+  useEffect(() => {
+    hydrateTheme();
+  }, [hydrateTheme]);
 
   useEffect(() => {
     void preloadAssets().catch((err: unknown) => {

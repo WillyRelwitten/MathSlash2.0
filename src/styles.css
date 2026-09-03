@@ -61,33 +61,6 @@
     }
   }
 
-  /* Cave is dark — lighten overlay copy, not the button token set. */
-  .world-cave .theme-title {
-    color: #f6efe2;
-    text-shadow: 0 2px 16px rgba(0, 0, 0, 0.72);
-  }
-
-  .world-cave .theme-kicker,
-  .world-cave .theme-sub {
-    color: #d8cbb4;
-    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
-  }
-
-  .world-cave .theme-ghost {
-    color: #f6efe2;
-    background: rgba(10, 8, 6, 0.42);
-  }
-
-  .world-cave .hud-ink {
-    color: #f6efe2;
-    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.75);
-  }
-
-  .world-cave .hud-muted {
-    color: #d4c6ae;
-    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
-  }
-
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -97,4 +70,31 @@
       transition-duration: 0.01ms !important;
     }
   }
+}
+
+/* Unlayered so cave copy beats Tailwind text-fg / text-muted utilities. */
+.world-cave .theme-title {
+  color: #f6efe2;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.72);
+}
+
+.world-cave .theme-kicker,
+.world-cave .theme-sub {
+  color: #d8cbb4;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+}
+
+.world-cave .theme-ghost {
+  color: #f6efe2;
+  background: rgba(10, 8, 6, 0.42);
+}
+
+.world-cave .hud-ink {
+  color: #f6efe2;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.75);
+}
+
+.world-cave .hud-muted {
+  color: #d4c6ae;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
 }
