@@ -40,6 +40,8 @@ interface GameState {
   setScreen: (s: Screen) => void;
   setMode: (m: Mode) => void;
   patchConfig: (p: Partial<RunConfig>) => void;
+  applyLastClassic: () => void;
+  rememberClassic: () => void;
   setHud: (h: HudSnap) => void;
   toggleMute: () => void;
   toggleShake: () => void;
@@ -58,11 +60,26 @@ const idleHud: HudSnap = {
   feedback: null,
 };
 
+const DEFAULT_CLASSIC: RunConfig = { op: "mul", difficulty: "easy", table: "all" };
+
+function bootSave() {
+  const save = loadSave();
+  return { save, config: save.lastClassic ?? DEFAULT_CLASSIC };
+}
+
+const booted = bootSave();
+
+function persistClassic(save: SaveData, config: RunConfig): SaveData {
+  const next = { ...save, lastClassic: config };
+  persistSave(next);
+  return next;
+}
+
 export const useGame = create<GameState>((set, get) => ({
   screen: "home",
   mode: "classic",
-  config: { op: "mul", difficulty: "easy", table: "all" },
-  save: loadSave(),
+  config: booted.config,
+  save: booted.save,
   hud: idleHud,
   lastRun: null,
   setScreen: (screen) => set({ screen }),
@@ -72,7 +89,17 @@ export const useGame = create<GameState>((set, get) => ({
     if (p.op && p.op !== "mul" && p.op !== "div" && p.op !== "mix") {
       config.table = "all";
     }
-    set({ config });
+    if (get().screen === "setup") {
+      set({ config, save: persistClassic(get().save, config) });
+    } else {
+      set({ config });
+    }
+  },
+  applyLastClassic: () => {
+    set({ config: get().save.lastClassic ?? DEFAULT_CLASSIC });
+  },
+  rememberClassic: () => {
+    set({ save: persistClassic(get().save, get().config) });
   },
   setHud: (hud) => set({ hud }),
   toggleMute: () => {
