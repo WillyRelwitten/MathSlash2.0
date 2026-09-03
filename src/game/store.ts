@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Difficulty, HudSnap, OpSel, RunConfig } from "./types.ts";
+import type { Difficulty, HudSnap, Mode, OpSel, RunConfig } from "./types.ts";
 import { scoreKey } from "./types.ts";
 import {
   type SaveData,
@@ -10,7 +10,15 @@ import {
   recordRun,
 } from "./save.ts";
 
-export type Screen = "home" | "setup" | "how" | "scores" | "playing" | "paused" | "over";
+export type Screen =
+  | "home"
+  | "setup"
+  | "junior"
+  | "how"
+  | "scores"
+  | "playing"
+  | "paused"
+  | "over";
 
 export interface LastRun {
   score: number;
@@ -24,11 +32,13 @@ export interface LastRun {
 
 interface GameState {
   screen: Screen;
+  mode: Mode;
   config: RunConfig;
   save: SaveData;
   hud: HudSnap;
   lastRun: LastRun | null;
   setScreen: (s: Screen) => void;
+  setMode: (m: Mode) => void;
   patchConfig: (p: Partial<RunConfig>) => void;
   setHud: (h: HudSnap) => void;
   toggleMute: () => void;
@@ -50,11 +60,13 @@ const idleHud: HudSnap = {
 
 export const useGame = create<GameState>((set, get) => ({
   screen: "home",
+  mode: "classic",
   config: { op: "mul", difficulty: "easy", table: "all" },
   save: loadSave(),
   hud: idleHud,
   lastRun: null,
   setScreen: (screen) => set({ screen }),
+  setMode: (mode) => set({ mode }),
   patchConfig: (p) => {
     const config = { ...get().config, ...p };
     if (p.op && p.op !== "mul" && p.op !== "div" && p.op !== "mix") {
@@ -74,6 +86,7 @@ export const useGame = create<GameState>((set, get) => ({
     set({ save });
   },
   finishRun: (score, solved, maxCombo) => {
+    if (get().mode === "junior") return;
     const { save, config } = get();
     const result = recordRun(save, config, score, solved);
     set({

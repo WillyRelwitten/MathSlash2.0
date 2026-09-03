@@ -1,7 +1,7 @@
 import { BALLOON_KINDS, type BalloonKind, type GameAssets } from "./assets.ts";
 import { pathLength, swipeHitsCircle, type Pt } from "./geometry.ts";
 import { makeProblem, problemKey } from "./problems.ts";
-import type { Problem, RunConfig, HudSnap } from "./types.ts";
+import type { Mode, Problem, RunConfig, HudSnap } from "./types.ts";
 
 export type { HudSnap };
 
@@ -96,6 +96,7 @@ export class SliceEngine {
   private h = 0;
   private dpr = 1;
   private config: RunConfig | null = null;
+  private mode: Mode = "classic";
   private problem: Problem | null = null;
   private lastKey = "";
   private balloons: Balloon[] = [];
@@ -139,8 +140,9 @@ export class SliceEngine {
     this.shakeOn = on;
   }
 
-  start(config: RunConfig) {
+  start(config: RunConfig, mode: Mode = "classic") {
     this.config = config;
+    this.mode = mode;
     this.score = 0;
     this.combo = 0;
     this.maxCombo = 0;
@@ -407,39 +409,22 @@ export class SliceEngine {
     );
     const kinds = [...BALLOON_KINDS].sort(() => Math.random() - 0.5);
     const n = values.length;
-    const g = this.gravity();
-    const pad = 24;
     const baseR = Math.min(72, Math.max(44, Math.min(this.w, this.h) * 0.09));
 
     for (let i = 0; i < n; i++) {
       const kind = kinds[i % kinds.length]!;
       const r = baseR * kind.scale;
       const slot = n <= 1 ? 0 : (i / (n - 1)) * 2 - 1;
-      const edge = pad + r;
-      const usable = Math.max(40, this.w - edge * 2);
-      const packedHalf = n <= 1 ? 0 : (r * 2.1 * (n - 1)) / 2;
-      const startHalf = Math.min(usable * 0.36, Math.max(packedHalf, usable * 0.18));
-      let x =
-        this.w * 0.5 +
-        slot * startHalf +
-        (Math.random() - 0.5) * Math.min(16, usable * 0.03);
-      x = Math.max(edge + 2, Math.min(this.w - edge - 2, x));
-      const y = this.h + r * 0.4;
-      const apex = this.h * (0.2 + Math.random() * 0.16);
-      const rise = Math.max(80, y - apex);
-      const vy = -Math.sqrt(2 * g * rise) * (0.92 + Math.random() * 0.12);
-      const endHalf = Math.min(usable * 0.5, Math.max(startHalf * 1.2, usable * 0.46));
-      const tOff = Math.max(0.7, (Math.abs(vy) / g) * 2);
-      const vx = (this.w * 0.5 + slot * endHalf - x) / tOff + (Math.random() - 0.5) * 14;
+      const toss = this.tossFromWater(r, slot, n);
       this.balloons.push({
         id: this.nextId++,
         kind,
         value: values[i]!,
         isAnswer: values[i] === this.problem.answer,
-        x,
-        y,
-        vx,
-        vy,
+        x: toss.x,
+        y: toss.y,
+        vx: toss.vx,
+        vy: toss.vy,
         r,
         rot: (Math.random() - 0.5) * 0.5,
         spin: (Math.random() - 0.5) * 1.2,
@@ -452,8 +437,44 @@ export class SliceEngine {
     this.handlers.onEvent("throw");
   }
 
+  /** Shared launch arc used by the initial throw and Junior relaunch. */
+  private tossFromWater(r: number, slot: number, n: number) {
+    const g = this.gravity();
+    const pad = 24;
+    const edge = pad + r;
+    const usable = Math.max(40, this.w - edge * 2);
+    const packedHalf = n <= 1 ? 0 : (r * 2.1 * (n - 1)) / 2;
+    const startHalf = Math.min(usable * 0.36, Math.max(packedHalf, usable * 0.18));
+    let x =
+      this.w * 0.5 +
+      slot * startHalf +
+      (Math.random() - 0.5) * Math.min(16, usable * 0.03);
+    x = Math.max(edge + 2, Math.min(this.w - edge - 2, x));
+    const y = this.h + r * 0.4;
+    const apex = this.h * (0.2 + Math.random() * 0.16);
+    const rise = Math.max(80, y - apex);
+    const vy = -Math.sqrt(2 * g * rise) * (0.92 + Math.random() * 0.12);
+    const endHalf = Math.min(usable * 0.5, Math.max(startHalf * 1.2, usable * 0.46));
+    const tOff = Math.max(0.7, (Math.abs(vy) / g) * 2);
+    const vx = (this.w * 0.5 + slot * endHalf - x) / tOff + (Math.random() - 0.5) * 14;
+    return { x, y, vx, vy };
+  }
+
+  private relaunch(f: Balloon) {
+    const cohort = this.balloons.filter((b) => b.alive && !b.sliced && b.fade >= 1);
+    const n = Math.max(1, cohort.length);
+    const i = Math.max(0, cohort.indexOf(f));
+    const slot = n <= 1 ? 0 : (i / (n - 1)) * 2 - 1;
+    const toss = this.tossFromWater(f.r, slot, n);
+    f.x = toss.x;
+    f.y = toss.y;
+    f.vx = toss.vx;
+    f.vy = toss.vy;
+  }
+
   private gravity(): number {
-    return 1450 * 0.75 * (this.h / 800) * this.speed();
+    const g = 1450 * 0.75 * (this.h / 800) * this.speed();
+    return this.mode === "junior" ? g * 0.15 : g;
   }
 
   private trySlice() {
@@ -531,14 +552,14 @@ export class SliceEngine {
   private onWrong(f: Balloon) {
     this.throwHadWrong = true;
     this.combo = 0;
-    this.lives -= 1;
+    if (this.mode !== "junior") this.lives -= 1;
     this.feedback = "wrong";
     this.trauma = Math.min(1, this.trauma + 0.5);
     this.flash = 0.28;
     this.floaters.push({ x: f.x, y: f.y - f.r, text: "Wrong", life: 0.7, color: "#c4564a" });
     this.handlers.onEvent("wrong");
     this.emitHud();
-    if (this.lives <= 0) {
+    if (this.mode !== "junior" && this.lives <= 0) {
       this.beginOver();
       return;
     }
@@ -546,6 +567,7 @@ export class SliceEngine {
   }
 
   private onMiss() {
+    if (this.mode === "junior") return;
     this.combo = 0;
     if (!this.throwHadWrong) this.lives -= 1;
     this.feedback = "miss";
@@ -564,6 +586,7 @@ export class SliceEngine {
   }
 
   private beginOver() {
+    if (this.mode === "junior") return;
     this.phase = "over";
     this.running = true;
     this.handlers.onOver({
@@ -660,7 +683,9 @@ export class SliceEngine {
         if (f.fade <= 0) f.alive = false;
       }
       if (f.y - f.r > this.h + 36) {
-        if (f.isAnswer && !f.sliced && f.fade > 0.5 && this.phase === "throw") {
+        if (this.mode === "junior" && !f.sliced && f.fade >= 1) {
+          this.relaunch(f);
+        } else if (f.isAnswer && !f.sliced && f.fade > 0.5 && this.phase === "throw") {
           f.alive = false;
           this.onMiss();
         } else {

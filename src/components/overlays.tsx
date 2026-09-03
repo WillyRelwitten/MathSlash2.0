@@ -6,6 +6,7 @@ import {
   Lock,
   Pause,
   RotateCcw,
+  Smile,
   Trophy,
   Volume2,
   VolumeX,
@@ -14,7 +15,16 @@ import { Button } from "@/components/ui/button";
 import { difficultyBlurb, neededToUnlock } from "@/game/problems";
 import { ALL_OPS, diffIndex } from "@/game/save";
 import { useGame } from "@/game/store";
-import { DIFFS, DIFF_LABEL, OP_LABEL, TABLES, type OpSel } from "@/game/types";
+import {
+  DIFFS,
+  DIFF_LABEL,
+  OPS,
+  OP_LABEL,
+  OP_SYMBOL,
+  TABLES,
+  type Op,
+  type OpSel,
+} from "@/game/types";
 import { cn } from "@/lib/utils";
 
 export function HomeScreen({ onPlay }: { onPlay: () => void }) {
@@ -27,12 +37,21 @@ export function HomeScreen({ onPlay }: { onPlay: () => void }) {
           MathSlash
         </h1>
         <p className="mt-3 max-w-xs text-base leading-snug text-muted">
-          Slash the right answer. Miss it, and you lose a life.
+          Swipe the right number before the balloon splashes back down.
         </p>
       </div>
       <div className="mx-auto flex w-full max-w-sm flex-col gap-3">
         <Button size="xl" className="w-full font-display text-lg" onClick={onPlay}>
           Play
+        </Button>
+        <Button
+          variant="secondary"
+          size="xl"
+          className="w-full font-display text-lg"
+          onClick={() => setScreen("junior")}
+        >
+          <Smile className="size-5" />
+          Junior Mode
         </Button>
         <div className="grid grid-cols-2 gap-3">
           <Button variant="secondary" size="lg" onClick={() => setScreen("how")}>
@@ -166,6 +185,35 @@ export function SetupScreen({ onStart }: { onStart: () => void }) {
   );
 }
 
+export function JuniorScreen({ onPick }: { onPick: (op: Op) => void }) {
+  const setScreen = useGame((s) => s.setScreen);
+  return (
+    <div className="pointer-events-auto flex h-full flex-col px-5 pb-6 pt-[max(1rem,env(safe-area-inset-top))]">
+      <header className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => setScreen("home")} aria-label="Back">
+          <ChevronLeft className="size-5" />
+        </Button>
+        <h2 className="font-display text-lg font-semibold">Junior Mode</h2>
+      </header>
+
+      <div className="mx-auto mt-6 grid w-full max-w-md flex-1 grid-cols-2 content-center gap-3 pb-4">
+        {OPS.map((op) => (
+          <Button
+            key={op}
+            variant="secondary"
+            className="h-32 flex-col gap-2 font-display"
+            onClick={() => onPick(op)}
+            aria-label={OP_LABEL[op]}
+          >
+            <span className="text-5xl leading-none">{OP_SYMBOL[op]}</span>
+            <span className="text-sm font-medium">{OP_LABEL[op]}</span>
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Chip({
   active,
   onClick,
@@ -278,6 +326,7 @@ export function ScoresScreen() {
 
 export function PlayHud({ onPause }: { onPause: () => void }) {
   const hud = useGame((s) => s.hud);
+  const mode = useGame((s) => s.mode);
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-4 pt-[max(10px,env(safe-area-inset-top))]">
       <div className="flex items-start justify-between">
@@ -291,14 +340,16 @@ export function PlayHud({ onPause }: { onPause: () => void }) {
           )}
         </div>
         <div className="pointer-events-auto flex items-center gap-2">
-          <div className="flex items-center gap-1 pr-1">
-            {Array.from({ length: 3 }, (_, i) => (
-              <Heart
-                key={i}
-                className={cn("size-5", i < hud.lives ? "fill-danger text-danger" : "text-border")}
-              />
-            ))}
-          </div>
+          {mode !== "junior" ? (
+            <div className="flex items-center gap-1 pr-1">
+              {Array.from({ length: 3 }, (_, i) => (
+                <Heart
+                  key={i}
+                  className={cn("size-5", i < hud.lives ? "fill-danger text-danger" : "text-border")}
+                />
+              ))}
+            </div>
+          ) : null}
           <Button variant="secondary" size="icon" onClick={onPause} aria-label="Pause">
             <Pause className="size-4" />
           </Button>
@@ -354,7 +405,8 @@ export function PauseScreen({
 
 export function OverScreen({ onAgain, onMenu }: { onAgain: () => void; onMenu: () => void }) {
   const last = useGame((s) => s.lastRun);
-  if (!last) return null;
+  const mode = useGame((s) => s.mode);
+  if (!last || mode === "junior") return null;
   return (
     <div className="pointer-events-auto absolute inset-0 z-20 flex items-end justify-center bg-bg/70 px-5 pb-8 pt-[max(1rem,env(safe-area-inset-top))] sm:items-center">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5">
