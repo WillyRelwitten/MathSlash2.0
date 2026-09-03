@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   HomeScreen,
   HowScreen,
+  JuniorScreen,
   OverScreen,
   PauseScreen,
   PlayHud,
@@ -12,6 +13,7 @@ import { preloadAssets } from "@/game/assets";
 import { audio } from "@/game/audio";
 import { SliceEngine } from "@/game/engine";
 import { useGame } from "@/game/store";
+import type { Mode, Op } from "@/game/types";
 
 export function GameApp() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -21,6 +23,7 @@ export function GameApp() {
   const setScreen = useGame((s) => s.setScreen);
   const setHud = useGame((s) => s.setHud);
   const finishRun = useGame((s) => s.finishRun);
+  const mode = useGame((s) => s.mode);
   const [bootError, setBootError] = useState<string | null>(null);
   const playing = screen === "playing" || screen === "paused" || screen === "over";
 
@@ -76,7 +79,7 @@ export function GameApp() {
       engine.setShake(useGame.getState().save.shake);
       engineRef.current = engine;
       window.__mathSlash = engine.debug();
-      engine.start(useGame.getState().config);
+      engine.start(useGame.getState().config, useGame.getState().mode);
     })();
     return () => {
       cancelled = true;
@@ -102,7 +105,8 @@ export function GameApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, [setScreen]);
 
-  const startRun = () => {
+  const startRun = (nextMode: Mode = "classic") => {
+    useGame.getState().setMode(nextMode);
     audio.unlock();
     audio.slice();
     setHud({
@@ -115,6 +119,11 @@ export function GameApp() {
       feedback: null,
     });
     setScreen("playing");
+  };
+
+  const startJunior = (op: Op) => {
+    useGame.getState().patchConfig({ op, difficulty: "easy", table: "all" });
+    startRun("junior");
   };
 
   const pause = () => {
@@ -134,14 +143,14 @@ export function GameApp() {
     audio.unlock();
     setScreen("playing");
     requestAnimationFrame(() => {
-      engineRef.current?.start(useGame.getState().config);
+      engineRef.current?.start(useGame.getState().config, useGame.getState().mode);
     });
   };
 
   return (
     <main className="relative h-dvh w-full overflow-hidden bg-bg text-fg">
       <div className="beach-photo absolute inset-0 bg-cover bg-center" />
-      <div className="absolute inset-0 bg-bg/32" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-bg/16 to-bg/44" />
 
       {playing ? (
         <canvas ref={canvasRef} className="absolute inset-0 z-[1] h-full w-full touch-none pointer-events-auto" />
@@ -158,18 +167,20 @@ export function GameApp() {
               <HomeScreen
                 onPlay={() => {
                   audio.unlock();
+                  useGame.getState().setMode("classic");
                   setScreen("setup");
                 }}
               />
             ) : null}
-            {screen === "setup" ? <SetupScreen onStart={startRun} /> : null}
+            {screen === "setup" ? <SetupScreen onStart={() => startRun("classic")} /> : null}
+            {screen === "junior" ? <JuniorScreen onPick={startJunior} /> : null}
             {screen === "how" ? <HowScreen /> : null}
             {screen === "scores" ? <ScoresScreen /> : null}
             {screen === "playing" || screen === "paused" || screen === "over" ? (
               <PlayHud onPause={pause} />
             ) : null}
             {screen === "paused" ? <PauseScreen onResume={resume} onQuit={quit} /> : null}
-            {screen === "over" ? (
+            {screen === "over" && mode !== "junior" ? (
               <OverScreen onAgain={again} onMenu={() => setScreen("home")} />
             ) : null}
           </>

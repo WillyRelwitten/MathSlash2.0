@@ -7,6 +7,8 @@ export type Difficulty = (typeof DIFFS)[number];
 
 export type TableSel = number | "all";
 
+export type Mode = "classic" | "junior";
+
 export interface RunConfig {
   op: OpSel;
   difficulty: Difficulty;
