@@ -1,4 +1,12 @@
-import { type Difficulty, type OpSel, type RunConfig, DIFFS, scoreKey } from "./types.ts";
+import {
+  type Difficulty,
+  type OpSel,
+  type RunConfig,
+  type TableSel,
+  DIFFS,
+  TABLES,
+  scoreKey,
+} from "./types.ts";
 import { neededToUnlock } from "./problems.ts";
 
 const KEY = "mathslash-save";
@@ -11,6 +19,8 @@ export interface SaveData {
   unlocked: Record<OpSel, number>;
   muted: boolean;
   shake: boolean;
+  /** Last classic Play setup. Optional so old saves keep loading. */
+  lastClassic?: RunConfig;
 }
 
 const OPS_SEL: OpSel[] = ["add", "sub", "mul", "div", "mix"];
@@ -20,9 +30,28 @@ function empty(): SaveData {
   return { version: VERSION, best: {}, unlocked, muted: false, shake: true };
 }
 
+function parseLastClassic(raw: unknown): RunConfig | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const c = raw as Record<string, unknown>;
+  if (!OPS_SEL.includes(c.op as OpSel)) return undefined;
+  if (!DIFFS.includes(c.difficulty as Difficulty)) return undefined;
+  const table = c.table;
+  const tableOk =
+    table === "all" ||
+    (typeof table === "number" &&
+      Number.isInteger(table) &&
+      (TABLES as readonly number[]).includes(table));
+  if (!tableOk) return undefined;
+  const op = c.op as OpSel;
+  const resolvedTable: TableSel =
+    op === "mul" || op === "div" || op === "mix" ? (table as TableSel) : "all";
+  return { op, difficulty: c.difficulty as Difficulty, table: resolvedTable };
+}
+
 function migrate(raw: SaveData): SaveData {
   const base = empty();
-  return {
+  const lastClassic = parseLastClassic(raw.lastClassic);
+  const next: SaveData = {
     ...base,
     ...raw,
     version: VERSION,
@@ -31,6 +60,9 @@ function migrate(raw: SaveData): SaveData {
     muted: Boolean(raw.muted),
     shake: raw.shake !== false,
   };
+  if (lastClassic) next.lastClassic = lastClassic;
+  else delete next.lastClassic;
+  return next;
 }
 
 export function loadSave(): SaveData {

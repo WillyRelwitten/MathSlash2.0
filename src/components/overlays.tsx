@@ -44,6 +44,9 @@ export function HomeScreen({ onPlay }: { onPlay: () => void }) {
         <Button size="xl" className="w-full font-display text-lg" onClick={onPlay}>
           Play
         </Button>
+        <Button variant="secondary" size="lg" className="w-full" onClick={() => setScreen("setup")}>
+          Set up
+        </Button>
         <Button
           variant="secondary"
           size="xl"
@@ -176,6 +179,10 @@ export function SetupScreen({ onStart }: { onStart: () => void }) {
           Start
         </Button>
         <p className="mt-2 text-center text-xs text-muted">
+          {OP_LABEL[config.op]} · {DIFF_LABEL[config.difficulty]}
+          {showTables ? ` · ${config.table === "all" ? "All" : config.table}` : ""}
+        </p>
+        <p className="mt-1 text-center text-xs text-muted">
           {save.unlocked[config.op] < 3
             ? "Clear a run to unlock the next rank."
             : "Every rank is open for this operation."}

@@ -107,6 +107,7 @@ export function GameApp() {
 
   const startRun = (nextMode: Mode = "classic") => {
     useGame.getState().setMode(nextMode);
+    if (nextMode === "classic") useGame.getState().rememberClassic();
     audio.unlock();
     audio.slice();
     setHud({
@@ -166,9 +167,8 @@ export function GameApp() {
             {screen === "home" ? (
               <HomeScreen
                 onPlay={() => {
-                  audio.unlock();
-                  useGame.getState().setMode("classic");
-                  setScreen("setup");
+                  useGame.getState().applyLastClassic();
+                  startRun("classic");
                 }}
               />
             ) : null}
