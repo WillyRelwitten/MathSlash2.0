@@ -98,3 +98,11 @@
   color: #d4c6ae;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
 }
+
+.world-cave .hud-heart {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85));
+}
+
+.world-cave .hud-heart.text-border {
+  color: #e8dcc8;
+}

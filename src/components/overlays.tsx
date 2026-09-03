@@ -363,7 +363,10 @@ export function PlayHud({ onPause }: { onPause: () => void }) {
               {Array.from({ length: 3 }, (_, i) => (
                 <Heart
                   key={i}
-                  className={cn("size-5", i < hud.lives ? "fill-danger text-danger" : "text-border")}
+                  className={cn(
+                    "hud-heart size-5",
+                    i < hud.lives ? "fill-danger text-danger" : "text-border",
+                  )}
                 />
               ))}
             </div>
