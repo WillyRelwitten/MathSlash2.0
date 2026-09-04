@@ -106,3 +106,20 @@
 .world-cave .hud-heart.text-border {
   color: #e8dcc8;
 }
+
+.world-cave .hud-ok {
+  color: #7ee8b8;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.75);
+}
+
+.hud-problem-plate {
+  background: rgba(255, 248, 238, 0.38);
+}
+
+.world-cave .hud-problem-plate {
+  background: rgba(8, 8, 10, 0.5);
+}
+
+.world-cave .play-veil {
+  background: rgba(8, 8, 10, 0.72);
+}

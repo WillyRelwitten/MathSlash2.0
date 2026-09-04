@@ -50,10 +50,6 @@ export function preloadAssets(): Promise<GameAssets> {
   return pending;
 }
 
-export function getAssets(): GameAssets | null {
-  return cache;
-}
-
 export function backdropFor(assets: GameAssets, theme: ThemeId = DEFAULT_THEME): ThemeBackdrop {
   return assets[theme];
 }

@@ -57,6 +57,20 @@ export function scoreKey(c: RunConfig): string {
   return configKey(c);
 }
 
+export function formatSetup(c: RunConfig): string {
+  const needsTable = c.op === "mul" || c.op === "div" || c.op === "mix";
+  const tableBit = needsTable ? ` · ${c.table === "all" ? "All" : c.table}` : "";
+  return `${OP_LABEL[c.op]} · ${DIFF_LABEL[c.difficulty]}${tableBit}`;
+}
+
+export function labelForScoreKey(key: string): string | null {
+  const [op, d, table] = key.split(":");
+  if (!op || !d) return null;
+  if (!(op in OP_LABEL) || !(d in DIFF_LABEL)) return null;
+  const tableBit = table && table !== "all" ? ` · ${table}s` : "";
+  return `${OP_LABEL[op as OpSel]} · ${DIFF_LABEL[d as Difficulty]}${tableBit}`;
+}
+
 export interface HudSnap {
   score: number;
   combo: number;

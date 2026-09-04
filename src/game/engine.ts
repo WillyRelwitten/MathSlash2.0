@@ -143,6 +143,7 @@ export class SliceEngine {
   private reduced = false;
   private shakeOn = true;
   private unsub: Array<() => void> = [];
+  private lastRelaunchSound = 0;
 
   constructor(canvas: HTMLCanvasElement, assets: GameAssets, handlers: EngineHandlers) {
     this.canvas = canvas;
@@ -178,6 +179,7 @@ export class SliceEngine {
     this.particles = [];
     this.floaters = [];
     this.trail = [];
+    this.lastRelaunchSound = 0;
     this.phase = "think";
     this.thinkLeft = 0.35;
     this.problem = this.nextProblem();
@@ -495,6 +497,11 @@ export class SliceEngine {
     f.y = toss.y;
     f.vx = toss.vx;
     f.vy = toss.vy;
+    const now = performance.now();
+    if (now - this.lastRelaunchSound > 280) {
+      this.lastRelaunchSound = now;
+      this.handlers.onEvent("throw");
+    }
   }
 
   private gravity(): number {
@@ -511,7 +518,7 @@ export class SliceEngine {
     let bestDist = Infinity;
     const last = this.swipePts[this.swipePts.length - 1];
     for (const f of live) {
-      const hit = swipeHitsCircle(this.swipePts, f.x, f.y, f.r * 1.25);
+      const hit = swipeHitsCircle(this.swipePts, f.x, f.y, f.r * 1.38);
       if (!hit.hit) continue;
       const d = last ? Math.hypot(last.x - f.x, last.y - f.y) : 0;
       if (d < bestDist) {
@@ -528,7 +535,7 @@ export class SliceEngine {
   private sliceBalloon(f: Balloon, _angle: number, nx: number, ny: number) {
     f.sliced = true;
     try {
-      navigator.vibrate?.(12);
+      navigator.vibrate?.(f.isAnswer ? 20 : 10);
     } catch {
       /* ignore */
     }
@@ -547,22 +554,21 @@ export class SliceEngine {
 
   private onCorrect(f: Balloon) {
     this.solved += 1;
-    this.combo += 1;
-    if (this.combo > this.maxCombo) this.maxCombo = this.combo;
-    const gain = Math.round(BASE_SCORE[this.config!.difficulty] * (1 + Math.min(this.combo, 10) * 0.22));
-    this.score += gain;
-    this.floaters.push({
-      x: f.x,
-      y: f.y - f.r,
-      text: `+${gain}`,
-      life: 0.8,
-      color: this.theme === "cave" ? "#f6efe2" : "#1a2430",
-    });
+    const ink = this.theme === "cave" ? "#f6efe2" : "#1a2430";
+    if (this.mode === "junior") {
+      this.floaters.push({ x: f.x, y: f.y - f.r, text: "Nice!", life: 1.25, color: ink });
+    } else {
+      this.combo += 1;
+      if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+      const gain = Math.round(BASE_SCORE[this.config!.difficulty] * (1 + Math.min(this.combo, 10) * 0.22));
+      this.score += gain;
+      this.floaters.push({ x: f.x, y: f.y - f.r, text: `+${gain}`, life: 0.8, color: ink });
+    }
     this.feedback = "correct";
     this.trauma = Math.min(1, this.trauma + 0.22);
     this.flash = 0.18;
-    this.freezeLeft = this.reduced ? 0 : 0.045;
-    this.handlers.onEvent(this.combo >= 3 ? "combo" : "correct");
+    this.freezeLeft = this.reduced ? 0 : 0.07;
+    this.handlers.onEvent(this.mode !== "junior" && this.combo >= 3 ? "combo" : "correct");
     for (const other of this.balloons) {
       if (!other.sliced && other.alive) {
         other.fade = 0.7;
@@ -583,7 +589,13 @@ export class SliceEngine {
     this.feedback = "wrong";
     this.trauma = Math.min(1, this.trauma + 0.5);
     this.flash = 0.28;
-    this.floaters.push({ x: f.x, y: f.y - f.r, text: "Wrong", life: 0.7, color: "#c4564a" });
+    this.floaters.push({
+      x: f.x,
+      y: f.y - f.r,
+      text: this.mode === "junior" ? "Try again" : "Wrong",
+      life: this.mode === "junior" ? 1.15 : 0.7,
+      color: this.mode === "junior" ? (this.theme === "cave" ? "#f6efe2" : "#1a2430") : "#c4564a",
+    });
     this.handlers.onEvent("wrong");
     this.emitHud();
     if (this.mode !== "junior" && this.lives <= 0) {
@@ -891,7 +903,7 @@ export class SliceEngine {
 
     this.drawTrail(ctx);
     for (const fl of this.floaters) {
-      ctx.globalAlpha = Math.max(0, fl.life / 0.8);
+      ctx.globalAlpha = Math.max(0, Math.min(1, fl.life / 0.8));
       ctx.fillStyle = fl.color;
       ctx.font = `700 ${Math.round(Math.min(w, h) * 0.038)}px Sora, sans-serif`;
       ctx.textAlign = "center";
