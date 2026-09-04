@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { difficultyBlurb, neededToUnlock } from "@/game/problems";
-import { ALL_OPS, diffIndex } from "@/game/save";
+import { diffIndex } from "@/game/save";
 import { useGame } from "@/game/store";
 import { THEME_PACKS, THEMES } from "@/game/themes";
 import {
@@ -25,6 +25,8 @@ import {
   OP_LABEL,
   OP_SYMBOL,
   TABLES,
+  formatSetup,
+  labelForScoreKey,
   type Op,
   type OpSel,
 } from "@/game/types";
@@ -32,10 +34,13 @@ import { cn } from "@/lib/utils";
 
 export function HomeScreen({ onPlay }: { onPlay: () => void }) {
   const setScreen = useGame((s) => s.setScreen);
+  const applyLastClassic = useGame((s) => s.applyLastClassic);
+  const lastClassic = useGame((s) => s.save.lastClassic);
   const theme = useGame((s) => s.theme);
   const pack = THEME_PACKS[theme];
+  const playHint = formatSetup(lastClassic ?? { op: "mul", difficulty: "easy", table: "all" });
   return (
-    <div className="pointer-events-auto relative flex h-full flex-col px-6 pb-[max(2rem,calc(env(safe-area-inset-bottom)+1rem))] pt-[max(2rem,env(safe-area-inset-top))]">
+    <div className="pointer-events-auto relative flex h-full flex-col pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] pb-[max(2rem,calc(env(safe-area-inset-bottom)+1rem))] pt-[max(2rem,env(safe-area-inset-top))]">
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <p className="theme-kicker text-xs font-medium tracking-[0.28em] text-muted uppercase">Slash the fact</p>
         <h1 className="theme-title font-display mt-3 text-5xl font-extrabold tracking-tight text-fg sm:text-6xl">
@@ -46,10 +51,21 @@ export function HomeScreen({ onPlay }: { onPlay: () => void }) {
         </p>
       </div>
       <div className="mx-auto flex w-full max-w-sm flex-col gap-3">
-        <Button size="xl" className="w-full font-display text-lg" onClick={onPlay}>
-          Play
-        </Button>
-        <Button variant="secondary" size="lg" className="w-full" onClick={() => setScreen("setup")}>
+        <div>
+          <Button size="xl" className="w-full font-display text-lg" onClick={onPlay}>
+            Play
+          </Button>
+          <p className="theme-sub mt-1.5 text-center text-xs text-muted">{playHint}</p>
+        </div>
+        <Button
+          variant="secondary"
+          size="lg"
+          className="w-full"
+          onClick={() => {
+            applyLastClassic();
+            setScreen("setup");
+          }}
+        >
           Set up
         </Button>
         <Button
@@ -97,7 +113,7 @@ export function SetupScreen({ onStart }: { onStart: () => void }) {
   const showTables = config.op === "mul" || config.op === "div" || config.op === "mix";
 
   return (
-    <div className="pointer-events-auto flex h-full flex-col px-5 pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="pointer-events-auto flex h-full flex-col pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-[max(1rem,env(safe-area-inset-top))]">
       <header className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="theme-ghost" onClick={() => setScreen("home")} aria-label="Back">
           <ChevronLeft className="size-5" />
@@ -199,10 +215,7 @@ export function SetupScreen({ onStart }: { onStart: () => void }) {
         <Button size="xl" className="w-full font-display text-lg" onClick={onStart}>
           Start
         </Button>
-        <p className="theme-sub mt-2 text-center text-xs text-muted">
-          {OP_LABEL[config.op]} · {DIFF_LABEL[config.difficulty]}
-          {showTables ? ` · ${config.table === "all" ? "All" : config.table}` : ""}
-        </p>
+        <p className="theme-sub mt-2 text-center text-xs text-muted">{formatSetup(config)}</p>
         <p className="theme-sub mt-1 text-center text-xs text-muted">
           {save.unlocked[config.op] < 3
             ? "Clear a run to unlock the next rank."
@@ -218,7 +231,7 @@ export function JuniorScreen({ onPick }: { onPick: (op: Op) => void }) {
   const theme = useGame((s) => s.theme);
   const flying = theme === "cave" ? "Rocks" : "Balloons";
   return (
-    <div className="pointer-events-auto flex h-full flex-col px-5 pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="pointer-events-auto flex h-full flex-col pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-[max(1rem,env(safe-area-inset-top))]">
       <header className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="theme-ghost" onClick={() => setScreen("home")} aria-label="Back">
           <ChevronLeft className="size-5" />
@@ -261,7 +274,7 @@ function Chip({
       type="button"
       onClick={onClick}
       className={cn(
-        "h-10 min-w-10 rounded-md border px-3 text-sm font-medium",
+        "h-11 min-w-11 rounded-md border px-3 text-sm font-medium",
         active ? "border-primary bg-primary text-primary-fg" : "border-border bg-raised text-fg",
       )}
     >
@@ -293,7 +306,7 @@ export function HowScreen({ onPlay }: { onPlay: () => void }) {
     },
   ];
   return (
-    <div className="pointer-events-auto flex h-full flex-col px-5 pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="pointer-events-auto flex h-full flex-col pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-[max(1rem,env(safe-area-inset-top))]">
       <header className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="theme-ghost" onClick={() => setScreen("home")} aria-label="Back">
           <ChevronLeft className="size-5" />
@@ -313,7 +326,14 @@ export function HowScreen({ onPlay }: { onPlay: () => void }) {
         <Button size="lg" onClick={onPlay}>
           Play
         </Button>
-        <Button variant="secondary" size="lg" onClick={() => setScreen("setup")}>
+        <Button
+          variant="secondary"
+          size="lg"
+          onClick={() => {
+            useGame.getState().applyLastClassic();
+            setScreen("setup");
+          }}
+        >
           Set up
         </Button>
       </div>
@@ -323,18 +343,16 @@ export function HowScreen({ onPlay }: { onPlay: () => void }) {
 
 export function ScoresScreen() {
   const { save, setScreen } = useGame();
-  const rows: { label: string; value: number }[] = [];
-  for (const op of ALL_OPS) {
-    for (const d of DIFFS) {
-      const key = `${op}:${d}:all`;
-      const v = save.best[key];
-      if (v) rows.push({ label: `${OP_LABEL[op]} · ${DIFF_LABEL[d]}`, value: v });
-    }
-  }
-  rows.sort((a, b) => b.value - a.value);
+  const rows = Object.entries(save.best)
+    .map(([key, value]) => {
+      const label = labelForScoreKey(key);
+      return label && value ? { key, label, value } : null;
+    })
+    .filter((row): row is { key: string; label: string; value: number } => row !== null)
+    .sort((a, b) => b.value - a.value);
 
   return (
-    <div className="pointer-events-auto flex h-full flex-col px-5 pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="pointer-events-auto flex h-full flex-col pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-[max(1rem,env(safe-area-inset-top))]">
       <header className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="theme-ghost" onClick={() => setScreen("home")} aria-label="Back">
           <ChevronLeft className="size-5" />
@@ -350,7 +368,7 @@ export function ScoresScreen() {
           <ul className="flex flex-col gap-2">
             {rows.map((r) => (
               <li
-                key={r.label}
+                key={r.key}
                 className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3"
               >
                 <span className="text-sm">{r.label}</span>
@@ -368,15 +386,25 @@ export function PlayHud({ onPause }: { onPause: () => void }) {
   const hud = useGame((s) => s.hud);
   const mode = useGame((s) => s.mode);
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-4 pt-[max(10px,env(safe-area-inset-top))]">
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(10px,env(safe-area-inset-top))]">
       <div className="flex items-start justify-between">
         <div>
-          <p className="hud-muted text-xs font-medium tracking-wide text-muted uppercase">Score</p>
-          <p className="hud-ink font-display text-2xl tabular-nums leading-none">{hud.score}</p>
-          {hud.combo >= 2 ? (
-            <p className="hud-ok mt-1 text-xs font-semibold text-ok tabular-nums">×{hud.combo} combo</p>
+          {mode === "junior" ? (
+            <>
+              <p className="hud-muted text-xs font-medium tracking-wide text-muted uppercase">Junior</p>
+              <p className="hud-ink font-display text-lg leading-none">Practice</p>
+              <p className="hud-muted mt-1 text-xs text-muted">No lives · no scores</p>
+            </>
           ) : (
-            <p className="hud-muted mt-1 text-xs text-muted">{hud.solved} solved</p>
+            <>
+              <p className="hud-muted text-xs font-medium tracking-wide text-muted uppercase">Score</p>
+              <p className="hud-ink font-display text-2xl tabular-nums leading-none">{hud.score}</p>
+              {hud.combo >= 2 ? (
+                <p className="hud-ok mt-1 text-xs font-semibold text-ok tabular-nums">×{hud.combo} combo</p>
+              ) : (
+                <p className="hud-muted mt-1 text-xs text-muted">{hud.solved} solved</p>
+              )}
+            </>
           )}
         </div>
         <div className="pointer-events-auto flex items-center gap-2">
@@ -400,11 +428,11 @@ export function PlayHud({ onPause }: { onPause: () => void }) {
       </div>
       <div className="mt-3 text-center">
         {hud.reveal ? (
-          <p className="hud-ok font-display text-2xl font-bold tracking-tight text-ok sm:text-3xl">
+          <p className="hud-problem-plate hud-ok mx-auto inline-block rounded-2xl px-4 py-1 font-display text-2xl font-bold tracking-tight text-ok sm:text-3xl">
             {hud.reveal}
           </p>
         ) : (
-          <p className="hud-ink font-display text-4xl font-extrabold tracking-tight text-fg sm:text-5xl">
+          <p className="hud-problem-plate hud-ink mx-auto inline-block rounded-2xl px-4 py-1 font-display text-4xl font-extrabold tracking-tight text-fg sm:text-5xl">
             {hud.problem}
           </p>
         )}
@@ -422,7 +450,7 @@ export function PauseScreen({
 }) {
   const { save, toggleMute, toggleShake, theme } = useGame();
   return (
-    <div className="pointer-events-auto absolute inset-0 z-20 flex items-center justify-center bg-bg/75 px-6 pb-[max(0px,env(safe-area-inset-bottom))]">
+    <div className="pointer-events-auto absolute inset-0 z-20 flex items-center justify-center bg-bg/75 pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] pb-[max(0px,env(safe-area-inset-bottom))]">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5">
         <h2 className="font-display text-xl font-semibold">Paused</h2>
         <p className="mt-1 text-sm text-muted">{THEME_PACKS[theme].pauseWait}</p>
@@ -451,7 +479,7 @@ export function OverScreen({ onAgain, onMenu }: { onAgain: () => void; onMenu: (
   const mode = useGame((s) => s.mode);
   if (!last || mode === "junior") return null;
   return (
-    <div className="pointer-events-auto absolute inset-0 z-20 flex items-end justify-center bg-bg/70 px-5 pb-[max(2rem,calc(env(safe-area-inset-bottom)+1rem))] pt-[max(1rem,env(safe-area-inset-top))] sm:items-center">
+    <div className="pointer-events-auto absolute inset-0 z-20 flex items-end justify-center bg-bg/70 pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(2rem,calc(env(safe-area-inset-bottom)+1rem))] pt-[max(1rem,env(safe-area-inset-top))] sm:items-center">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5">
         <p className="text-xs font-medium tracking-[0.22em] text-muted uppercase">Run over</p>
         <h2 className="font-display mt-1 text-3xl font-bold tabular-nums">{last.score}</h2>
@@ -493,7 +521,7 @@ export function ThemeScreen() {
   const setScreen = useGame((s) => s.setScreen);
 
   return (
-    <div className="pointer-events-auto flex h-full flex-col px-5 pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="pointer-events-auto flex h-full flex-col pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-[max(1rem,env(safe-area-inset-top))]">
       <header className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="theme-ghost" onClick={() => setScreen("home")} aria-label="Back">
           <ChevronLeft className="size-5" />

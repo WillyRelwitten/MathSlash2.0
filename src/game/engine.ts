@@ -561,7 +561,7 @@ export class SliceEngine {
     this.feedback = "correct";
     this.trauma = Math.min(1, this.trauma + 0.22);
     this.flash = 0.18;
-    this.freezeLeft = this.reduced ? 0 : 0.045;
+    this.freezeLeft = this.reduced ? 0 : 0.07;
     this.handlers.onEvent(this.combo >= 3 ? "combo" : "correct");
     for (const other of this.balloons) {
       if (!other.sliced && other.alive) {
@@ -583,7 +583,13 @@ export class SliceEngine {
     this.feedback = "wrong";
     this.trauma = Math.min(1, this.trauma + 0.5);
     this.flash = 0.28;
-    this.floaters.push({ x: f.x, y: f.y - f.r, text: "Wrong", life: 0.7, color: "#c4564a" });
+    this.floaters.push({
+      x: f.x,
+      y: f.y - f.r,
+      text: this.mode === "junior" ? "Try again" : "Wrong",
+      life: 0.7,
+      color: this.mode === "junior" ? (this.theme === "cave" ? "#f6efe2" : "#1a2430") : "#c4564a",
+    });
     this.handlers.onEvent("wrong");
     this.emitHud();
     if (this.mode !== "junior" && this.lives <= 0) {
