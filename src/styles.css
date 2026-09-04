@@ -119,3 +119,7 @@
 .world-cave .hud-problem-plate {
   background: rgba(8, 8, 10, 0.5);
 }
+
+.world-cave .play-veil {
+  background: rgba(8, 8, 10, 0.72);
+}

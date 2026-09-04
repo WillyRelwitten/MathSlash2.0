@@ -75,13 +75,16 @@ function migrate(raw: SaveData): SaveData {
   return next;
 }
 
+export function parseSave(raw: unknown): SaveData {
+  if (!raw || typeof raw !== "object") return empty();
+  return migrate(raw as SaveData);
+}
+
 export function loadSave(): SaveData {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return empty();
-    const parsed = JSON.parse(raw) as SaveData;
-    if (!parsed || typeof parsed !== "object") return empty();
-    return migrate(parsed);
+    return parseSave(JSON.parse(raw));
   } catch {
     return empty();
   }

@@ -528,7 +528,7 @@ export class SliceEngine {
   private sliceBalloon(f: Balloon, _angle: number, nx: number, ny: number) {
     f.sliced = true;
     try {
-      navigator.vibrate?.(12);
+      navigator.vibrate?.(f.isAnswer ? 20 : 10);
     } catch {
       /* ignore */
     }
@@ -547,22 +547,21 @@ export class SliceEngine {
 
   private onCorrect(f: Balloon) {
     this.solved += 1;
-    this.combo += 1;
-    if (this.combo > this.maxCombo) this.maxCombo = this.combo;
-    const gain = Math.round(BASE_SCORE[this.config!.difficulty] * (1 + Math.min(this.combo, 10) * 0.22));
-    this.score += gain;
-    this.floaters.push({
-      x: f.x,
-      y: f.y - f.r,
-      text: this.mode === "junior" ? "Nice!" : `+${gain}`,
-      life: 0.8,
-      color: this.theme === "cave" ? "#f6efe2" : "#1a2430",
-    });
+    const ink = this.theme === "cave" ? "#f6efe2" : "#1a2430";
+    if (this.mode === "junior") {
+      this.floaters.push({ x: f.x, y: f.y - f.r, text: "Nice!", life: 0.8, color: ink });
+    } else {
+      this.combo += 1;
+      if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+      const gain = Math.round(BASE_SCORE[this.config!.difficulty] * (1 + Math.min(this.combo, 10) * 0.22));
+      this.score += gain;
+      this.floaters.push({ x: f.x, y: f.y - f.r, text: `+${gain}`, life: 0.8, color: ink });
+    }
     this.feedback = "correct";
     this.trauma = Math.min(1, this.trauma + 0.22);
     this.flash = 0.18;
     this.freezeLeft = this.reduced ? 0 : 0.07;
-    this.handlers.onEvent(this.combo >= 3 ? "combo" : "correct");
+    this.handlers.onEvent(this.mode !== "junior" && this.combo >= 3 ? "combo" : "correct");
     for (const other of this.balloons) {
       if (!other.sliced && other.alive) {
         other.fade = 0.7;

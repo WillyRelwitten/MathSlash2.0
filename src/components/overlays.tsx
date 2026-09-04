@@ -450,7 +450,7 @@ export function PauseScreen({
 }) {
   const { save, toggleMute, toggleShake, theme } = useGame();
   return (
-    <div className="pointer-events-auto absolute inset-0 z-20 flex items-center justify-center bg-bg/75 pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] pb-[max(0px,env(safe-area-inset-bottom))]">
+    <div className="play-veil pointer-events-auto absolute inset-0 z-20 flex items-center justify-center bg-bg/75 pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] pb-[max(0px,env(safe-area-inset-bottom))]">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5">
         <h2 className="font-display text-xl font-semibold">Paused</h2>
         <p className="mt-1 text-sm text-muted">{THEME_PACKS[theme].pauseWait}</p>
@@ -479,7 +479,7 @@ export function OverScreen({ onAgain, onMenu }: { onAgain: () => void; onMenu: (
   const mode = useGame((s) => s.mode);
   if (!last || mode === "junior") return null;
   return (
-    <div className="pointer-events-auto absolute inset-0 z-20 flex items-end justify-center bg-bg/70 pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(2rem,calc(env(safe-area-inset-bottom)+1rem))] pt-[max(1rem,env(safe-area-inset-top))] sm:items-center">
+    <div className="play-veil pointer-events-auto absolute inset-0 z-20 flex items-end justify-center bg-bg/70 pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(2rem,calc(env(safe-area-inset-bottom)+1rem))] pt-[max(1rem,env(safe-area-inset-top))] sm:items-center">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5">
         <p className="text-xs font-medium tracking-[0.22em] text-muted uppercase">Run over</p>
         <h2 className="font-display mt-1 text-3xl font-bold tabular-nums">{last.score}</h2>
