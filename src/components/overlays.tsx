@@ -40,13 +40,13 @@ export function HomeScreen({ onPlay }: { onPlay: () => void }) {
   const pack = THEME_PACKS[theme];
   const playHint = formatSetup(lastClassic ?? { op: "mul", difficulty: "easy", table: "all" });
   return (
-    <div className="pointer-events-auto relative flex h-full flex-col pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] pb-[max(2rem,calc(env(safe-area-inset-bottom)+1rem))] pt-[max(2rem,env(safe-area-inset-top))]">
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
+    <div className="pointer-events-auto relative flex h-full min-h-0 flex-col overflow-y-auto pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] pb-[max(2rem,calc(env(safe-area-inset-bottom)+1rem))] pt-[max(2rem,env(safe-area-inset-top))]">
+      <div className="flex flex-1 flex-col items-center justify-center text-center max-[520px]:flex-none max-[520px]:py-4">
         <p className="theme-kicker text-xs font-medium tracking-[0.28em] text-muted uppercase">Slash the fact</p>
-        <h1 className="theme-title font-display mt-3 text-5xl font-extrabold tracking-tight text-fg sm:text-6xl">
+        <h1 className="theme-title font-display mt-3 text-5xl font-extrabold tracking-tight text-fg sm:text-6xl max-[520px]:mt-1 max-[520px]:text-4xl">
           MathSlash
         </h1>
-        <p className="theme-sub mt-3 max-w-xs text-base leading-snug text-muted">
+        <p className="theme-sub mt-3 max-w-xs text-base leading-snug text-muted max-[520px]:mt-1 max-[520px]:text-sm">
           {pack.homeSubtitle}
         </p>
       </div>
@@ -242,7 +242,7 @@ export function JuniorScreen({ onPick }: { onPick: (op: Op) => void }) {
         No lives. No scores. {flying} keep coming back — just practice.
       </p>
 
-      <div className="mx-auto mt-6 grid w-full max-w-md flex-1 grid-cols-2 content-center gap-3 pb-4">
+      <div className="mx-auto mt-6 grid w-full max-w-md flex-1 grid-cols-2 content-center gap-3 overflow-y-auto pb-4">
         {OPS.map((op) => (
           <Button
             key={op}
@@ -313,7 +313,7 @@ export function HowScreen({ onPlay }: { onPlay: () => void }) {
         </Button>
         <h2 className="theme-title font-display text-lg font-semibold">How to play</h2>
       </header>
-      <ol className="mx-auto mt-6 flex w-full max-w-md flex-1 flex-col gap-4">
+      <ol className="mx-auto mt-6 flex w-full max-w-md flex-1 flex-col gap-4 overflow-y-auto">
         {steps.map((s, i) => (
           <li key={s.title} className="rounded-xl border border-border bg-surface p-4">
             <p className="text-xs font-medium tracking-wide text-muted uppercase">Step {i + 1}</p>
@@ -431,11 +431,11 @@ export function PlayHud({ onPause }: { onPause: () => void }) {
           <p className="hud-problem-plate hud-ok mx-auto inline-block rounded-2xl px-4 py-1 font-display text-2xl font-bold tracking-tight text-ok sm:text-3xl">
             {hud.reveal}
           </p>
-        ) : (
+        ) : hud.problem ? (
           <p className="hud-problem-plate hud-ink mx-auto inline-block rounded-2xl px-4 py-1 font-display text-4xl font-extrabold tracking-tight text-fg sm:text-5xl">
             {hud.problem}
           </p>
-        )}
+        ) : null}
       </div>
     </div>
   );

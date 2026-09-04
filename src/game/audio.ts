@@ -137,6 +137,12 @@ export class GameAudio {
   }
 
   gameover() {
+    if (this.theme === "cave") {
+      this.noise(0.22, 0.07, 140);
+      this.tone(110, 0.22, "sine", 0.07, 60);
+      this.tone(73, 0.34, "triangle", 0.055, 40);
+      return;
+    }
     this.tone(330, 0.18, "sine", 0.08, 220);
     this.tone(220, 0.3, "triangle", 0.07, 110);
   }

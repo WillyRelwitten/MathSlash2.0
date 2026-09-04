@@ -554,7 +554,7 @@ export class SliceEngine {
     this.floaters.push({
       x: f.x,
       y: f.y - f.r,
-      text: `+${gain}`,
+      text: this.mode === "junior" ? "Nice!" : `+${gain}`,
       life: 0.8,
       color: this.theme === "cave" ? "#f6efe2" : "#1a2430",
     });

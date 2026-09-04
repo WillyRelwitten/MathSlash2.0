@@ -88,7 +88,6 @@ export const WATER_COLORS = ["#7eeaf6", "#ffffff", "#5ad4e8", "#c8f8ff", "#3ec8d
 export const FIZZLE_COLORS = ["#f7f3ea", "#ffffff", "#e6dfd2", "#d9d2c6"];
 export const DUST_COLORS = ["#8a7a68", "#c4b49c", "#5a5046", "#d8c8b0", "#6e6458"];
 export const SPARK_COLORS = ["#ffb14a", "#ffe08a", "#ff7a2a", "#fff3c2", "#ffd24a"];
-export const SHARD_COLORS = ["#6d7580", "#8a8178", "#c4883a", "#5d7a4c", "#5c4d86", "#8a5c4c"];
 export const CHIP_COLORS = ["#7a7066", "#4a443c", "#c0b4a4", "#5c564e"];
 
 export const TRAIL_RGB: Record<ThemeId, { r: number; g: number; b: number }> = {
