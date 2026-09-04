@@ -321,6 +321,12 @@ export function HowScreen({ onPlay }: { onPlay: () => void }) {
             <p className="mt-1 text-sm leading-relaxed text-muted">{s.body}</p>
           </li>
         ))}
+        <li className="rounded-xl border border-border bg-surface p-4">
+          <p className="text-xs font-medium tracking-wide text-muted uppercase">Junior Mode</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            No lives and no saved scores. Misses come back up so kids can keep practicing.
+          </p>
+        </li>
       </ol>
       <div className="mx-auto mt-4 flex w-full max-w-md flex-col gap-2">
         <Button size="lg" onClick={onPlay}>

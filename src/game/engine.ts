@@ -143,6 +143,7 @@ export class SliceEngine {
   private reduced = false;
   private shakeOn = true;
   private unsub: Array<() => void> = [];
+  private lastRelaunchSound = 0;
 
   constructor(canvas: HTMLCanvasElement, assets: GameAssets, handlers: EngineHandlers) {
     this.canvas = canvas;
@@ -178,6 +179,7 @@ export class SliceEngine {
     this.particles = [];
     this.floaters = [];
     this.trail = [];
+    this.lastRelaunchSound = 0;
     this.phase = "think";
     this.thinkLeft = 0.35;
     this.problem = this.nextProblem();
@@ -495,6 +497,11 @@ export class SliceEngine {
     f.y = toss.y;
     f.vx = toss.vx;
     f.vy = toss.vy;
+    const now = performance.now();
+    if (now - this.lastRelaunchSound > 280) {
+      this.lastRelaunchSound = now;
+      this.handlers.onEvent("throw");
+    }
   }
 
   private gravity(): number {
