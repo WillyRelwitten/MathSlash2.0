@@ -1,7 +1,10 @@
+import { DEFAULT_THEME, type ThemeId } from "./themes.ts";
+
 export class GameAudio {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   muted = false;
+  private theme: ThemeId = DEFAULT_THEME;
 
   unlock() {
     if (!this.ctx) {
@@ -19,6 +22,10 @@ export class GameAudio {
     if (this.master && this.ctx) {
       this.master.gain.setTargetAtTime(m ? 0 : 0.7, this.ctx.currentTime, 0.02);
     }
+  }
+
+  setTheme(theme: ThemeId) {
+    this.theme = theme;
   }
 
   private tone(
@@ -77,6 +84,12 @@ export class GameAudio {
   }
 
   slice() {
+    if (this.theme === "cave") {
+      this.noise(0.14, 0.11, 220 + Math.random() * 90);
+      this.noise(0.08, 0.07, 1100 + Math.random() * 280);
+      this.tone(110 + Math.random() * 30, 0.08, "triangle", 0.04, 60);
+      return;
+    }
     this.noise(0.16, 0.12, 380 + Math.random() * 160);
     this.noise(0.09, 0.07, 820 + Math.random() * 200);
     this.tone(160 + Math.random() * 40, 0.09, "sine", 0.045, 80);
@@ -84,11 +97,25 @@ export class GameAudio {
 
   correct() {
     this.slice();
+    if (this.theme === "cave") {
+      this.noise(0.2, 0.14, 160);
+      this.noise(0.12, 0.08, 480);
+      this.tone(196, 0.09, "triangle", 0.055, 100);
+      this.tone(523.25, 0.1, "sine", 0.08);
+      this.tone(659.25, 0.13, "sine", 0.06);
+      return;
+    }
     this.tone(523.25, 0.1, "sine", 0.1);
     this.tone(659.25, 0.14, "sine", 0.08);
   }
 
   wrong() {
+    if (this.theme === "cave") {
+      this.noise(0.1, 0.09, 140);
+      this.tone(88, 0.16, "sine", 0.055, 50);
+      this.tone(64, 0.12, "triangle", 0.035);
+      return;
+    }
     this.noise(0.22, 0.07, 2600);
     this.noise(0.16, 0.045, 4200);
     this.tone(280, 0.12, "sine", 0.03, 120);
@@ -110,6 +137,11 @@ export class GameAudio {
   }
 
   throwWhoosh() {
+    if (this.theme === "cave") {
+      this.noise(0.2, 0.055, 260);
+      this.noise(0.1, 0.03, 140);
+      return;
+    }
     this.noise(0.16, 0.045, 400);
   }
 }

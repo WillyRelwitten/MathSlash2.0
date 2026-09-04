@@ -8,6 +8,7 @@ import {
   scoreKey,
 } from "./types.ts";
 import { neededToUnlock } from "./problems.ts";
+import { type ThemeId, isThemeId } from "./themes.ts";
 
 const KEY = "mathslash-save";
 const VERSION = 1;
@@ -21,6 +22,8 @@ export interface SaveData {
   shake: boolean;
   /** Last classic Play setup. Optional so old saves keep loading. */
   lastClassic?: RunConfig;
+  /** Selected world skin. Optional so old saves keep loading (default beach). */
+  theme?: ThemeId;
 }
 
 const OPS_SEL: OpSel[] = ["add", "sub", "mul", "div", "mix"];
@@ -28,6 +31,10 @@ const OPS_SEL: OpSel[] = ["add", "sub", "mul", "div", "mix"];
 function empty(): SaveData {
   const unlocked = { add: 0, sub: 0, mul: 0, div: 0, mix: 0 } as Record<OpSel, number>;
   return { version: VERSION, best: {}, unlocked, muted: false, shake: true };
+}
+
+function parseTheme(raw: unknown): ThemeId | undefined {
+  return isThemeId(raw) ? raw : undefined;
 }
 
 function parseLastClassic(raw: unknown): RunConfig | undefined {
@@ -51,6 +58,7 @@ function parseLastClassic(raw: unknown): RunConfig | undefined {
 function migrate(raw: SaveData): SaveData {
   const base = empty();
   const lastClassic = parseLastClassic(raw.lastClassic);
+  const theme = parseTheme(raw.theme);
   const next: SaveData = {
     ...base,
     ...raw,
@@ -62,6 +70,8 @@ function migrate(raw: SaveData): SaveData {
   };
   if (lastClassic) next.lastClassic = lastClassic;
   else delete next.lastClassic;
+  if (theme) next.theme = theme;
+  else delete next.theme;
   return next;
 }
 

@@ -46,9 +46,18 @@
     background-image: url("/assets/craftpix/beach-portrait.png");
   }
 
+  .cave-photo {
+    background-color: #14110e;
+    background-image: url("/assets/cave/cave-portrait.jpg");
+  }
+
   @media (min-aspect-ratio: 1/1) {
     .beach-photo {
       background-image: url("/assets/craftpix/beach-landscape.png");
+    }
+
+    .cave-photo {
+      background-image: url("/assets/cave/cave-landscape.jpg");
     }
   }
 
@@ -61,4 +70,39 @@
       transition-duration: 0.01ms !important;
     }
   }
+}
+
+/* Unlayered so cave copy beats Tailwind text-fg / text-muted utilities. */
+.world-cave .theme-title {
+  color: #f6efe2;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.72);
+}
+
+.world-cave .theme-kicker,
+.world-cave .theme-sub {
+  color: #d8cbb4;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+}
+
+.world-cave .theme-ghost {
+  color: #f6efe2;
+  background: rgba(10, 8, 6, 0.42);
+}
+
+.world-cave .hud-ink {
+  color: #f6efe2;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.75);
+}
+
+.world-cave .hud-muted {
+  color: #d4c6ae;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+}
+
+.world-cave .hud-heart {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85));
+}
+
+.world-cave .hud-heart.text-border {
+  color: #e8dcc8;
 }
