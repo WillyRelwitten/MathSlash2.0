@@ -556,7 +556,7 @@ export class SliceEngine {
     this.solved += 1;
     const ink = this.theme === "cave" ? "#f6efe2" : "#1a2430";
     if (this.mode === "junior") {
-      this.floaters.push({ x: f.x, y: f.y - f.r, text: "Nice!", life: 0.8, color: ink });
+      this.floaters.push({ x: f.x, y: f.y - f.r, text: "Nice!", life: 1.25, color: ink });
     } else {
       this.combo += 1;
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
@@ -593,7 +593,7 @@ export class SliceEngine {
       x: f.x,
       y: f.y - f.r,
       text: this.mode === "junior" ? "Try again" : "Wrong",
-      life: 0.7,
+      life: this.mode === "junior" ? 1.15 : 0.7,
       color: this.mode === "junior" ? (this.theme === "cave" ? "#f6efe2" : "#1a2430") : "#c4564a",
     });
     this.handlers.onEvent("wrong");
@@ -903,7 +903,7 @@ export class SliceEngine {
 
     this.drawTrail(ctx);
     for (const fl of this.floaters) {
-      ctx.globalAlpha = Math.max(0, fl.life / 0.8);
+      ctx.globalAlpha = Math.max(0, Math.min(1, fl.life / 0.8));
       ctx.fillStyle = fl.color;
       ctx.font = `700 ${Math.round(Math.min(w, h) * 0.038)}px Sora, sans-serif`;
       ctx.textAlign = "center";
