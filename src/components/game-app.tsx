@@ -27,13 +27,8 @@ export function GameApp() {
   const finishRun = useGame((s) => s.finishRun);
   const mode = useGame((s) => s.mode);
   const theme = useGame((s) => s.theme);
-  const hydrateTheme = useGame((s) => s.hydrateTheme);
   const [bootError, setBootError] = useState<string | null>(null);
   const playing = screen === "playing" || screen === "paused" || screen === "over";
-
-  useEffect(() => {
-    hydrateTheme();
-  }, [hydrateTheme]);
 
   useEffect(() => {
     void preloadAssets().catch((err: unknown) => {
@@ -77,6 +72,7 @@ export function GameApp() {
       const engine = new SliceEngine(canvas, loaded, {
         onHud: setHud,
         onOver: (result) => {
+          audio.gameover();
           finishRun(result.score, result.solved, result.maxCombo);
         },
         onEvent: (kind) => {
@@ -209,7 +205,14 @@ export function GameApp() {
             ) : null}
             {screen === "setup" ? <SetupScreen onStart={() => startRun("classic")} /> : null}
             {screen === "junior" ? <JuniorScreen onPick={startJunior} /> : null}
-            {screen === "how" ? <HowScreen /> : null}
+            {screen === "how" ? (
+              <HowScreen
+                onPlay={() => {
+                  useGame.getState().applyLastClassic();
+                  startRun("classic");
+                }}
+              />
+            ) : null}
             {screen === "scores" ? <ScoresScreen /> : null}
             {screen === "themes" ? <ThemeScreen /> : null}
             {screen === "playing" || screen === "paused" || screen === "over" ? (

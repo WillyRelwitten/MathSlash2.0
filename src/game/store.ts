@@ -43,7 +43,6 @@ interface GameState {
   setScreen: (s: Screen) => void;
   setMode: (m: Mode) => void;
   setTheme: (theme: ThemeId) => void;
-  hydrateTheme: () => void;
   patchConfig: (p: Partial<RunConfig>) => void;
   applyLastClassic: () => void;
   rememberClassic: () => void;
@@ -69,7 +68,11 @@ const DEFAULT_CLASSIC: RunConfig = { op: "mul", difficulty: "easy", table: "all"
 
 function bootSave() {
   const save = loadSave();
-  return { save, config: save.lastClassic ?? DEFAULT_CLASSIC };
+  return {
+    save,
+    config: save.lastClassic ?? DEFAULT_CLASSIC,
+    theme: save.theme ?? DEFAULT_THEME,
+  };
 }
 
 const booted = bootSave();
@@ -84,7 +87,7 @@ export const useGame = create<GameState>((set, get) => ({
   screen: "home",
   mode: "classic",
   config: booted.config,
-  theme: DEFAULT_THEME,
+  theme: booted.theme,
   save: booted.save,
   hud: idleHud,
   lastRun: null,
@@ -94,10 +97,6 @@ export const useGame = create<GameState>((set, get) => ({
     const save = { ...get().save, theme };
     persistSave(save);
     set({ save, theme });
-  },
-  hydrateTheme: () => {
-    const theme = get().save.theme ?? DEFAULT_THEME;
-    if (theme !== get().theme) set({ theme });
   },
   patchConfig: (p) => {
     const config = { ...get().config, ...p };

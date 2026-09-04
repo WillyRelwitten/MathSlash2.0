@@ -511,7 +511,7 @@ export class SliceEngine {
     let bestDist = Infinity;
     const last = this.swipePts[this.swipePts.length - 1];
     for (const f of live) {
-      const hit = swipeHitsCircle(this.swipePts, f.x, f.y, f.r * 1.25);
+      const hit = swipeHitsCircle(this.swipePts, f.x, f.y, f.r * 1.38);
       if (!hit.hit) continue;
       const d = last ? Math.hypot(last.x - f.x, last.y - f.y) : 0;
       if (d < bestDist) {
